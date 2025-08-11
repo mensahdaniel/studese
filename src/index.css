@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* StudEse Design System - Modern Dark-First Student Productivity Platform
+Professional, modern design with elegant dark theme and muted accents.
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Light theme - clean and minimal */
+    --background: 0 0% 99%;
+    --foreground: 215 25% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 15%;
+    --primary: 215 84% 58%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 15% 96%;
+    --secondary-foreground: 215 25% 25%;
+    --muted: 210 15% 97%;
+    --muted-foreground: 215 15% 55%;
+    --accent: 210 25% 94%;
+    --accent-foreground: 215 25% 25%;
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 215 15% 90%;
+    --input: 215 15% 94%;
+    --ring: 215 84% 58%;
+    --radius: 0.75rem;
+    --success: 142 72% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 60%;
+    --warning-foreground: 0 0% 100%;
+    
+    /* Sidebar light theme */
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 215 84% 58%;
+  }
+
+  .dark {
+    /* Modern dark theme - elegant and professional */
+    --background: 0 0% 7.1%;
+    --foreground: 0 0% 94.1%;
+    --card: 0 0% 11.8%;
+    --card-foreground: 0 0% 94.1%;
+    --popover: 0 0% 11.8%;
+    --popover-foreground: 0 0% 94.1%;
+    --primary: 215 85% 65%;
+    --primary-foreground: 0 0% 11.8%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 94.1%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 65.1%;
+    --accent: 0 0% 18.8%;
+    --accent-foreground: 0 0% 94.1%;
+    --destructive: 0 75% 65%;
+    --destructive-foreground: 0 0% 11.8%;
+    --border: 0 0% 18.8%;
+    --input: 0 0% 18.8%;
+    --ring: 215 85% 65%;
+    --success: 142 72% 55%;
+    --success-foreground: 0 0% 11.8%;
+    --warning: 38 92% 70%;
+    --warning-foreground: 0 0% 11.8%;
+    
+    /* Sidebar dark theme */
+    --sidebar-background: 0 0% 3.9%;
+    --sidebar-foreground: 0 0% 94.1%;
+    --sidebar-primary: 215 85% 65%;
+    --sidebar-primary-foreground: 0 0% 11.8%;
+    --sidebar-accent: 0 0% 11.8%;
+    --sidebar-accent-foreground: 0 0% 94.1%;
+    --sidebar-border: 0 0% 11.8%;
+    --sidebar-ring: 215 85% 65%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
