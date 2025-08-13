@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
@@ -7,18 +8,60 @@ import {
   Plus, 
   Clock,
   BookOpen,
-  AlertCircle
+  AlertCircle,
+  LogOut
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import ThemeToggle from "@/components/ThemeToggle";
+import { supabase } from "@/utils/supabase";
+import { useToast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [user, setUser] = useState<any>(null);
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return "Good morning";
     if (hour < 17) return "Good afternoon";
     return "Good evening";
+  };
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error) throw error;
+        setUser(user);
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to load user data.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    fetchUser();
+  }, [toast]);
+
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+      toast({
+        title: "Signed out",
+        description: "You have been successfully signed out.",
+      });
+      navigate("/login");
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to sign out.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Mock data for demonstration
@@ -47,7 +90,9 @@ const Dashboard = () => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold">{getGreeting()}, Alex! 👋</h1>
+            <h1 className="text-3xl font-bold">
+              {getGreeting()}, {user?.user_metadata?.username || user?.email.split('@')[0] || 'User'}! 👋
+            </h1>
             <p className="text-muted-foreground">Here's what's happening today ✨</p>
           </div>
           <div className="flex items-center gap-3">
@@ -60,6 +105,15 @@ const Dashboard = () => {
                 day: 'numeric' 
               })}
             </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleSignOut}
+              className="flex items-center gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              Sign Out
+            </Button>
           </div>
         </div>
 
