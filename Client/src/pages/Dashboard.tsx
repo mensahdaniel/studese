@@ -1,285 +1,242 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { 
-  Calendar, 
-  CheckSquare, 
-  FileText, 
-  Plus, 
-  Clock,
-  BookOpen,
-  AlertCircle
-} from "lucide-react";
-import { Link } from "react-router-dom";
-import Layout from "@/components/Layout";
-import ThemeToggle from "@/components/ThemeToggle";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Eye, EyeOff } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/utils/supabase";
 
-const Dashboard = () => {
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Good morning";
-    if (hour < 17) return "Good afternoon";
-    return "Good evening";
+const Login = () => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!email || !password || (isSignUp && !username)) {
+      toast({
+        title: "Missing information",
+        description: "Please fill in all fields to continue.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      if (isSignUp) {
+        // Sign-up
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/dashboard`,
+            data: { username },
+          },
+        });
+        if (error) throw error;
+        toast({
+          title: "Account created!",
+          description: "Check your email to confirm your account.",
+        });
+        setIsSignUp(false); // Switch back to sign-in form
+      } else {
+        // Sign-in
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+        toast({
+          title: "Welcome back! 🎉",
+          description: "You've been successfully logged in.",
+        });
+        navigate("/dashboard");
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "An error occurred.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Mock data for demonstration
-  const upcomingClasses = [
-    { time: "9:00 AM", subject: "Computer Science 101", location: "Room 204" },
-    { time: "2:00 PM", subject: "Mathematics", location: "Room 150" },
-    { time: "4:30 PM", subject: "Physics Lab", location: "Lab B" }
-  ];
-
-  const todaysTasks = [
-    { task: "Submit Programming Assignment", urgent: true },
-    { task: "Read Chapter 5 - Biology", urgent: false },
-    { task: "Prepare for Math Quiz", urgent: true },
-    { task: "Team Project Meeting", urgent: false }
-  ];
-
-  const recentNotes = [
-    { title: "Lecture Notes - CS 101", date: "Today" },
-    { title: "Study Group Ideas", date: "Yesterday" },
-    { title: "Research Paper Outline", date: "2 days ago" }
-  ];
-
   return (
-    <Layout>
-      <div className="p-6 space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
+      <div className="w-full max-w-md space-y-8">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold">{getGreeting()}, Alex! 👋</h1>
-            <p className="text-muted-foreground">Here's what's happening today ✨</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <div className="text-sm text-muted-foreground">
-              {new Date().toLocaleDateString('en-US', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              })}
+        <div className="text-center space-y-2">
+          <Link to="/" className="inline-flex items-center space-x-2 group">
+            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+              <span className="text-primary-foreground font-bold">SE</span>
             </div>
-          </div>
+            <span className="font-semibold text-2xl group-hover:text-primary transition-colors">StudEse</span>
+          </Link>
+          <p className="text-muted-foreground">Simplify your campus life</p>
         </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="border-border hover:shadow-lg transition-all duration-200">
-            <CardContent className="p-4 flex items-center space-x-3">
-              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                <Calendar className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">Today's Classes</p>
-                <p className="text-2xl font-bold">3</p>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="border-border hover:shadow-lg transition-all duration-200">
-            <CardContent className="p-4 flex items-center space-x-3">
-              <div className="w-10 h-10 bg-warning/10 rounded-lg flex items-center justify-center">
-                <CheckSquare className="h-5 w-5 text-warning" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">Pending Tasks</p>
-                <p className="text-2xl font-bold">7</p>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="border-border hover:shadow-lg transition-all duration-200">
-            <CardContent className="p-4 flex items-center space-x-3">
-              <div className="w-10 h-10 bg-success/10 rounded-lg flex items-center justify-center">
-                <FileText className="h-5 w-5 text-success" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">Notes</p>
-                <p className="text-2xl font-bold">12</p>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="border-border hover:shadow-lg transition-all duration-200">
-            <CardContent className="p-4 flex items-center space-x-3">
-              <div className="w-10 h-10 bg-destructive/10 rounded-lg flex items-center justify-center">
-                <AlertCircle className="h-5 w-5 text-destructive" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">Due Soon</p>
-                <p className="text-2xl font-bold">2</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Main Content Grid */}
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Today's Schedule */}
-          <Card className="lg:col-span-1">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Today's Classes
-              </CardTitle>
-              <Link to="/calendar">
-                <Button variant="ghost" size="sm">View All</Button>
-              </Link>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {upcomingClasses.map((class_, index) => (
-                <div key={index} className="flex items-center space-x-4 p-3 rounded-lg border border-border">
-                  <div className="text-center">
-                    <p className="text-sm font-medium">{class_.time}</p>
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium">{class_.subject}</p>
-                    <p className="text-sm text-muted-foreground">{class_.location}</p>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          {/* Today's Tasks */}
-          <Card className="lg:col-span-1">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <CheckSquare className="h-5 w-5" />
-                Today's Tasks
-              </CardTitle>
-              <Link to="/tasks">
-                <Button variant="ghost" size="sm">
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </Link>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {todaysTasks.map((task, index) => (
-                <div key={index} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-accent">
-                  <input type="checkbox" className="rounded" />
-                  <div className="flex-1">
-                    <p className={`text-sm ${task.urgent ? 'font-medium' : ''}`}>
-                      {task.task}
-                    </p>
-                    {task.urgent && (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-destructive/10 text-destructive">
-                        Urgent
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          {/* Recent Notes */}
-          <Card className="lg:col-span-1">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Recent Notes
-              </CardTitle>
-              <Link to="/notes">
-                <Button variant="ghost" size="sm">
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </Link>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {recentNotes.length > 0 ? (
-                recentNotes.map((note, index) => (
-                  <div key={index} className="p-3 rounded-lg border border-border hover:bg-accent cursor-pointer transition-colors">
-                    <p className="font-medium text-sm">{note.title}</p>
-                    <p className="text-xs text-muted-foreground">{note.date}</p>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">No notes yet</p>
-                  <p className="text-xs">Start capturing your thoughts! 💭</p>
+        {/* Login/Sign-up Card */}
+        <Card className="border-border">
+          <CardHeader className="space-y-1 text-center">
+            <CardTitle className="text-2xl">{isSignUp ? "Create an Account" : "Welcome back 👋"}</CardTitle>
+            <CardDescription>
+              {isSignUp ? "Sign up to start organizing your campus life" : "Enter your credentials to access your productivity dashboard"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-4">
+              {isSignUp && (
+                <div className="space-y-2">
+                  <Label htmlFor="username">Username</Label>
+                  <Input
+                    id="username"
+                    type="text"
+                    placeholder="Choose a username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="w-full"
+                  />
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="your.email@university.edu"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </Button>
+                </div>
+              </div>
 
-        {/* Study Tips */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              💡 Study Tips
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-accent/50">
-                <span className="text-lg">🍅</span>
-                <div>
-                  <p className="text-sm font-medium">Take breaks every 25 minutes</p>
-                  <p className="text-xs text-muted-foreground">Use the Pomodoro technique to maintain focus and prevent burnout</p>
-                </div>
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={isLoading}
+                onClick={handleSubmit}
+              >
+                {isLoading ? (isSignUp ? "Signing up..." : "Signing in...") : (isSignUp ? "Sign Up" : "Sign In")}
+              </Button>
+            </div>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <Separator className="w-full" />
               </div>
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-accent/50">
-                <span className="text-lg">📚</span>
-                <div>
-                  <p className="text-sm font-medium">Review notes within 24 hours</p>
-                  <p className="text-xs text-muted-foreground">This helps transfer information from short-term to long-term memory</p>
-                </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-2 text-muted-foreground">Demo Access</span>
               </div>
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-accent/50">
-                <span className="text-lg">🧠</span>
-                <div>
-                  <p className="text-sm font-medium">Use active recall instead of re-reading</p>
-                  <p className="text-xs text-muted-foreground">Test yourself on what you've learned rather than just reviewing</p>
-                </div>
-              </div>
+            </div>
+
+            <Link to="/dashboard">
+              <Button variant="outline" className="w-full">
+                Continue as Guest
+              </Button>
+            </Link>
+
+            <div className="text-center space-y-2">
+              <p className="text-sm text-muted-foreground">
+                {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
+                <Button
+                  variant="link"
+                  className="p-0 h-auto font-normal"
+                  onClick={() => setIsSignUp(!isSignUp)}
+                >
+                  {isSignUp ? "Sign in" : "Sign up"}
+                </Button>
+              </p>
+              
+              {!isSignUp && (
+                <Button 
+                  variant="link" 
+                  className="p-0 h-auto text-xs font-normal text-muted-foreground"
+                  onClick={async () => {
+                    if (!email) {
+                      toast({
+                        title: "Error",
+                        description: "Please enter your email to reset password.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    try {
+                      await supabase.auth.resetPasswordForEmail(email, {
+                        redirectTo: `${window.location.origin}/reset-password`,
+                      });
+                      toast({
+                        title: "Password reset email sent",
+                        description: "Check your email for a password reset link.",
+                      });
+                    } catch (error: any) {
+                      toast({
+                        title: "Error",
+                        description: error.message || "Failed to send reset email.",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                >
+                  Forgot your password?
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Quick Actions */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Link to="/notes">
-                <Button variant="outline" className="h-20 flex flex-col items-center gap-2 w-full">
-                  <FileText className="h-6 w-6" />
-                  <span className="text-sm">New Note</span>
-                </Button>
-              </Link>
-              
-              <Link to="/tasks">
-                <Button variant="outline" className="h-20 flex flex-col items-center gap-2 w-full">
-                  <CheckSquare className="h-6 w-6" />
-                  <span className="text-sm">Add Task</span>
-                </Button>
-              </Link>
-              
-              <Link to="/calendar">
-                <Button variant="outline" className="h-20 flex flex-col items-center gap-2 w-full">
-                  <Calendar className="h-6 w-6" />
-                  <span className="text-sm">Schedule</span>
-                </Button>
-              </Link>
-              
-              <Link to="/resources">
-                <Button variant="outline" className="h-20 flex flex-col items-center gap-2 w-full">
-                  <BookOpen className="h-6 w-6" />
-                  <span className="text-sm">Resources</span>
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+        <p className="text-center text-xs text-muted-foreground">
+          By {isSignUp ? "signing up" : "signing in"}, you agree to our{" "}
+          <Button variant="link" className="p-0 h-auto text-xs font-normal">
+            Terms of Service
+          </Button>{" "}
+          and{" "}
+          <Button variant="link" className="p-0 h-auto text-xs font-normal">
+            Privacy Policy
+          </Button>
+        </p>
       </div>
-    </Layout>
+    </div>
   );
 };
 
-export default Dashboard;
+export default Login;

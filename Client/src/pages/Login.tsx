@@ -4,22 +4,24 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/utils/supabase";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email || !password) {
+    if (!email || !password || (isSignUp && !username)) {
       toast({
         title: "Missing information",
         description: "Please fill in all fields to continue.",
@@ -30,15 +32,45 @@ const Login = () => {
 
     setIsLoading(true);
     
-    // Simulate login - replace with actual auth logic
-    setTimeout(() => {
+    try {
+      if (isSignUp) {
+        // Sign-up
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/dashboard`,
+            data: { username },
+          },
+        });
+        if (error) throw error;
+        toast({
+          title: "Account created!",
+          description: "Check your email to confirm your account.",
+        });
+        setIsSignUp(false); // Switch back to sign-in form
+      } else {
+        // Sign-in
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+        toast({
+          title: "Welcome back! 🎉",
+          description: "You've been successfully logged in.",
+        });
+        navigate("/dashboard");
+      }
+    } catch (error: any) {
       toast({
-        title: "Welcome back! 🎉",
-        description: "You've been successfully logged in.",
+        title: "Error",
+        description: error.message || "An error occurred.",
+        variant: "destructive",
       });
-      navigate("/dashboard");
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -55,16 +87,29 @@ const Login = () => {
           <p className="text-muted-foreground">Simplify your campus life</p>
         </div>
 
-        {/* Login Card */}
+        {/* Login/Sign-up Card */}
         <Card className="border-border">
           <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl">Welcome back 👋</CardTitle>
+            <CardTitle className="text-2xl">{isSignUp ? "Create an Account" : "Welcome back 👋"}</CardTitle>
             <CardDescription>
-              Enter your credentials to access your productivity dashboard
+              {isSignUp ? "Sign up to start organizing your campus life" : "Enter your credentials to access your productivity dashboard"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-4">
+              {isSignUp && (
+                <div className="space-y-2">
+                  <Label htmlFor="username">Username</Label>
+                  <Input
+                    id="username"
+                    type="text"
+                    placeholder="Choose a username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -104,44 +149,67 @@ const Login = () => {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Signing in..." : "Sign In"}
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={isLoading}
+                onClick={handleSubmit}
+              >
+                {isLoading ? (isSignUp ? "Signing up..." : "Signing in...") : (isSignUp ? "Sign Up" : "Sign In")}
               </Button>
-            </form>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <Separator className="w-full" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">Demo Access</span>
-              </div>
             </div>
-
-            <Link to="/dashboard">
-              <Button variant="outline" className="w-full">
-                Continue as Guest
-              </Button>
-            </Link>
 
             <div className="text-center space-y-2">
               <p className="text-sm text-muted-foreground">
-                Don't have an account?{" "}
-                <Button variant="link" className="p-0 h-auto font-normal">
-                  Sign up
+                {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
+                <Button
+                  variant="link"
+                  className="p-0 h-auto font-normal"
+                  onClick={() => setIsSignUp(!isSignUp)}
+                >
+                  {isSignUp ? "Sign in" : "Sign up"}
                 </Button>
               </p>
               
-              <Button variant="link" className="p-0 h-auto text-xs font-normal text-muted-foreground">
-                Forgot your password?
-              </Button>
+              {!isSignUp && (
+                <Button 
+                  variant="link" 
+                  className="p-0 h-auto text-xs font-normal text-muted-foreground"
+                  onClick={async () => {
+                    if (!email) {
+                      toast({
+                        title: "Error",
+                        description: "Please enter your email to reset password.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    try {
+                      await supabase.auth.resetPasswordForEmail(email, {
+                        redirectTo: `${window.location.origin}/reset-password`,
+                      });
+                      toast({
+                        title: "Password reset email sent",
+                        description: "Check your email for a password reset link.",
+                      });
+                    } catch (error: any) {
+                      toast({
+                        title: "Error",
+                        description: error.message || "Failed to send reset email.",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                >
+                  Forgot your password?
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Footer */}
         <p className="text-center text-xs text-muted-foreground">
-          By signing in, you agree to our{" "}
+          By {isSignUp ? "signing up" : "signing in"}, you agree to our{" "}
           <Button variant="link" className="p-0 h-auto text-xs font-normal">
             Terms of Service
           </Button>{" "}
