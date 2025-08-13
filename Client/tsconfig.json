@@ -5,9 +5,13 @@
     { "path": "./tsconfig.node.json" }
   ],
   "compilerOptions": {
-    "baseUrl": ".",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "target": "ESNext",
+    "types": ["node"],
+    "baseUrl": "src",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["*"]
     },
     "noImplicitAny": false,
     "noUnusedParameters": false,
@@ -16,4 +20,5 @@
     "noUnusedLocals": false,
     "strictNullChecks": false
   }
+  
 }
