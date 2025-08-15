@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,45 +15,83 @@ import {
 } from "lucide-react";
 import Layout from "@/components/Layout";
 
+type Note = {
+  id: string;
+  title: string;
+  category: string;
+  priority: "high" | "normal";
+  dueDate: string;
+  completed: boolean;
+  description: string;
+  pinned?: boolean;
+};
+
 const Notes = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  
-  // Mock notes data
-  const notes = [
-    {
-      id: 1,
-      title: "Computer Science 101 - Lecture 5",
-      content: "Today we covered algorithms and data structures. Key points: Big O notation, sorting algorithms, and time complexity analysis...",
-      category: "academic",
-      date: "2024-01-15",
-      pinned: true
-    },
-    {
-      id: 2,
-      title: "Biology Study Group Ideas",
-      content: "Meeting scheduled for Thursday. Topics to cover: cellular respiration, photosynthesis, and protein synthesis...",
-      category: "study",
-      date: "2024-01-14",
-      pinned: false
-    },
-    {
-      id: 3,
-      title: "Research Paper Outline",
-      content: "Title: 'Impact of Climate Change on Marine Ecosystems'. Structure: Introduction, Literature Review, Methodology...",
-      category: "research",
-      date: "2024-01-13",
-      pinned: true
-    },
-    {
-      id: 4,
-      title: "Campus Event Planning",
-      content: "Student council meeting notes. Budget allocation for spring events, venue bookings, and promotional strategies...",
-      category: "personal",
-      date: "2024-01-12",
-      pinned: false
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [showForm, setShowForm] = useState(false);
+
+  // Form fields
+  const [title, setTitle] = useState("");
+  const [category, setCategory] = useState("academic");
+  const [priority, setPriority] = useState(false);
+  const [dueDate, setDueDate] = useState("");
+  const [description, setDescription] = useState("");
+
+  // Fetch notes from API
+  useEffect(() => {
+    const fetchNotes = async () => {
+      try {
+        const res = await fetch("/api/notes"); // Your API endpoint
+        const data = await res.json();
+        setNotes(data);
+      } catch (err) {
+        console.error("Failed to fetch notes:", err);
+      }
+    };
+    fetchNotes();
+  }, []);
+
+  const handleAddNote = async () => {
+    if (!title.trim() || !description.trim() || !dueDate) return;
+
+    const newNote = {
+      title,
+      category,
+      priority: priority ? "high" : "normal",
+      dueDate,
+      completed: false,
+      description,
+    };
+
+    try {
+      const res = await fetch("/api/notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newNote),
+      });
+      const savedNote = await res.json();
+      setNotes((prev) => [savedNote, ...prev]);
+      setTitle("");
+      setCategory("academic");
+      setPriority(false);
+      setDueDate("");
+      setDescription("");
+      setShowForm(false);
+    } catch (err) {
+      console.error("Failed to add note:", err);
     }
-  ];
+  };
+
+  const handleDeleteNote = async (id: string) => {
+    try {
+      await fetch(`/api/notes/${id}`, { method: "DELETE" });
+      setNotes((prev) => prev.filter(note => note.id !== id));
+    } catch (err) {
+      console.error("Failed to delete note:", err);
+    }
+  };
 
   const categories = [
     { id: "all", name: "All Notes", count: notes.length },
@@ -65,7 +103,7 @@ const Notes = () => {
 
   const filteredNotes = notes.filter(note => {
     const matchesSearch = note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         note.content.toLowerCase().includes(searchTerm.toLowerCase());
+                         note.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === "all" || note.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
@@ -95,11 +133,56 @@ const Notes = () => {
             </h1>
             <p className="text-muted-foreground">Capture and organize your thoughts</p>
           </div>
-          <Button>
+          <Button onClick={() => setShowForm((prev) => !prev)}>
             <Plus className="h-4 w-4 mr-2" />
-            New Note
+            {showForm ? "Cancel" : "New Note"}
           </Button>
         </div>
+
+        {/* New Note Form */}
+        {showForm && (
+          <Card className="p-4">
+            <div className="space-y-4">
+              <Input
+                placeholder="Title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="border rounded-md p-2 w-full"
+              >
+                <option value="academic">Academic</option>
+                <option value="study">Study Groups</option>
+                <option value="research">Research</option>
+                <option value="personal">Personal</option>
+              </select>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={priority}
+                  onChange={(e) => setPriority(e.target.checked)}
+                />
+                <span>High Priority</span>
+              </div>
+              <Input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+              />
+              <Textarea
+                placeholder="Description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+              <Button onClick={handleAddNote}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Note
+              </Button>
+            </div>
+          </Card>
+        )}
 
         {/* Search and Filters */}
         <div className="flex flex-col sm:flex-row gap-4">
@@ -152,18 +235,18 @@ const Notes = () => {
                       <Badge variant="secondary" className={getCategoryColor(note.category)}>
                         {note.category}
                       </Badge>
-                      <span className="text-xs text-muted-foreground">{note.date}</span>
+                      <span className="text-xs text-muted-foreground">{note.dueDate}</span>
                     </div>
                   </CardHeader>
                   <CardContent className="pt-0">
                     <p className="text-sm text-muted-foreground line-clamp-3">
-                      {note.content}
+                      {note.description}
                     </p>
                     <div className="flex items-center gap-2 mt-4">
                       <Button variant="ghost" size="sm">
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" onClick={() => handleDeleteNote(note.id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -188,18 +271,18 @@ const Notes = () => {
                     <Badge variant="secondary" className={getCategoryColor(note.category)}>
                       {note.category}
                     </Badge>
-                    <span className="text-xs text-muted-foreground">{note.date}</span>
+                    <span className="text-xs text-muted-foreground">{note.dueDate}</span>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
                   <p className="text-sm text-muted-foreground line-clamp-3">
-                    {note.content}
+                    {note.description}
                   </p>
                   <div className="flex items-center gap-2 mt-4">
                     <Button variant="ghost" size="sm">
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="sm">
+                    <Button variant="ghost" size="sm" onClick={() => handleDeleteNote(note.id)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -218,7 +301,7 @@ const Notes = () => {
               <p className="text-muted-foreground mb-4">
                 {searchTerm ? "Try adjusting your search terms" : "Create your first note to get started"}
               </p>
-              <Button>
+              <Button onClick={() => setShowForm(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Create Note
               </Button>

@@ -16,11 +16,13 @@ import Layout from "@/components/Layout";
 import ThemeToggle from "@/components/ThemeToggle";
 import { supabase } from "@/utils/supabase";
 import { useToast } from "@/hooks/use-toast";
+import { formatDistanceToNow } from "date-fns";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
+  const [recentNotes, setRecentNotes] = useState<any[]>([]); // now from Supabase
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -46,6 +48,55 @@ const Dashboard = () => {
 
     fetchUser();
   }, [toast]);
+  
+  // Fetch recent notes from Supabase
+  useEffect(() => {
+    const fetchNotes = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("notes")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(5);
+
+        if (error) throw error;
+        setRecentNotes(data || []);
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to load notes.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    fetchNotes();
+  }, [toast]);
+
+  //fetch note count from supabase
+  const [noteCount, setNoteCount] = useState<number>(0);
+
+  useEffect(() => {
+    const fetchNoteCount = async () => {
+     try {
+      const { count, error } = await supabase
+        .from("notes")
+        .select("*", { count: "exact", head: true });
+
+      if (error) throw error;
+      setNoteCount(count || 0);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to load note count.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  fetchNoteCount();
+}, [toast]);
+
 
   const handleSignOut = async () => {
     try {
@@ -78,11 +129,11 @@ const Dashboard = () => {
     { task: "Team Project Meeting", urgent: false }
   ];
 
-  const recentNotes = [
+ /* const recentNotes = [
     { title: "Lecture Notes - CS 101", date: "Today" },
     { title: "Study Group Ideas", date: "Yesterday" },
     { title: "Research Paper Outline", date: "2 days ago" }
-  ];
+  ];*/
 
   return (
     <Layout>
@@ -150,7 +201,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-sm font-medium">Notes</p>
-                <p className="text-2xl font-bold">12</p>
+                <p className="text-2xl font-bold">{noteCount}</p> 
               </div>
             </CardContent>
           </Card>
@@ -228,7 +279,7 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          {/* Recent Notes */}
+          {/* Recent Notes from Supabase */}
           <Card className="lg:col-span-1">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-2">
@@ -243,10 +294,15 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent className="space-y-3">
               {recentNotes.length > 0 ? (
-                recentNotes.map((note, index) => (
-                  <div key={index} className="p-3 rounded-lg border border-border hover:bg-accent cursor-pointer transition-colors">
+                recentNotes.map((note) => (
+                  <div
+                    key={note.id}
+                    className="p-3 rounded-lg border border-border hover:bg-accent cursor-pointer transition-colors"
+                  >
                     <p className="font-medium text-sm">{note.title}</p>
-                    <p className="text-xs text-muted-foreground">{note.date}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatDistanceToNow(new Date(note.created_at), { addSuffix: true })}
+                    </p>
                   </div>
                 ))
               ) : (
