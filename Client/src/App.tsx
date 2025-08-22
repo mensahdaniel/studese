@@ -14,6 +14,7 @@ import Events from "./pages/Events";
 import Resources from "./pages/Resources";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import NoteEditor from "./pages/NoteEditor";
 import { supabase } from "@/utils/supabase";
 
 const queryClient = new QueryClient();
@@ -54,6 +55,10 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
           <Routes>
+            <Route
+  path="/notes/:id"
+  element={session ? <NoteEditor /> : <Navigate to="/login" />}
+/>
             <Route
               path="/"
               element={session ? <Dashboard /> : <Landing />}
