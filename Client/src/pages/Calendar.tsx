@@ -8,7 +8,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  MapPin
+  MapPin,
+  Trash2
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { supabase } from "@/utils/supabase";
@@ -51,7 +52,7 @@ const Calendar = () => {
     color: "bg-primary/10 text-primary border-primary/20",
   });
 
-  // Offline-first load for events
+  // Load events offline-first
   useEffect(() => {
     const loadEvents = async () => {
       try {
@@ -67,7 +68,6 @@ const Calendar = () => {
         const merged = [...localEvents.filter(e => !e.id), ...supabaseEvents];
         setEvents(merged);
 
-        // Sync local-only
         for (const e of localEvents.filter(e => !e.id)) {
           try {
             const { data, error } = await supabase.from("events").insert([e]).select();
@@ -88,57 +88,54 @@ const Calendar = () => {
     loadEvents();
   }, [toast]);
 
-  // Offline-first load for tasks
-// Offline-first load for tasks
-useEffect(() => {
-  const loadTasks = async () => {
-    try {
-      const storedTasks = localStorage.getItem("tasks_local");
-      const localTasks = storedTasks ? JSON.parse(storedTasks) : [];
-
-      let supabaseTasks: any[] = [];
+  // Load tasks offline-first
+  useEffect(() => {
+    const loadTasks = async () => {
       try {
-        const { data, error } = await supabase.from("tasks").select("*");
-        if (!error && data) supabaseTasks = data;
-      } catch {}
+        const storedTasks = localStorage.getItem("tasks_local");
+        const localTasks = storedTasks ? JSON.parse(storedTasks) : [];
 
-      // Map dueDate -> date for calendar
-      const mappedLocalTasks = localTasks
-        .filter(t => t.dueDate)
-        .map(t => ({ ...t, date: t.dueDate, type: "task", color: "bg-success/10 text-success border-success/20" }));
-
-      const mappedSupabaseTasks = supabaseTasks
-        .filter(t => t.dueDate)
-        .map(t => ({ ...t, date: t.dueDate, type: "task", color: "bg-success/10 text-success border-success/20" }));
-
-      const merged = [...mappedLocalTasks, ...mappedSupabaseTasks];
-      setTasks(merged);
-
-      // Sync local-only
-      for (const t of mappedLocalTasks.filter(t => !t.id)) {
+        let supabaseTasks: any[] = [];
         try {
-          const { data, error } = await supabase.from("tasks").insert([{
-            title: t.title,
-            dueDate: t.dueDate,
-            completed: t.completed,
-            priority: t.priority
-          }]).select();
-          if (!error && data?.[0]?.id) {
-            t.id = data[0].id;
-            localStorage.setItem("tasks_local", JSON.stringify(localTasks));
-          }
+          const { data, error } = await supabase.from("tasks").select("*");
+          if (!error && data) supabaseTasks = data;
         } catch {}
+
+        const mappedLocalTasks = localTasks
+          .filter(t => t.dueDate)
+          .map(t => ({ ...t, date: t.dueDate, type: "task", color: "bg-success/10 text-success border-success/20" }));
+
+        const mappedSupabaseTasks = supabaseTasks
+          .filter(t => t.dueDate)
+          .map(t => ({ ...t, date: t.dueDate, type: "task", color: "bg-success/10 text-success border-success/20" }));
+
+        const merged = [...mappedLocalTasks, ...mappedSupabaseTasks];
+        setTasks(merged);
+
+        for (const t of mappedLocalTasks.filter(t => !t.id)) {
+          try {
+            const { data, error } = await supabase.from("tasks").insert([{
+              title: t.title,
+              dueDate: t.dueDate,
+              completed: t.completed,
+              priority: t.priority
+            }]).select();
+            if (!error && data?.[0]?.id) {
+              t.id = data[0].id;
+              localStorage.setItem("tasks_local", JSON.stringify(localTasks));
+            }
+          } catch {}
+        }
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to load tasks",
+          variant: "destructive",
+        });
       }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to load tasks",
-        variant: "destructive",
-      });
-    }
-  };
-  loadTasks();
-}, [toast]);
+    };
+    loadTasks();
+  }, [toast]);
 
   const monthNames = [
     "January","February","March","April","May","June",
@@ -146,7 +143,6 @@ useEffect(() => {
   ];
   const weekDays = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
-  // Merge events + tasks
   const allItems = [...events, ...tasks].filter(i => i.date);
 
   const getDaysInMonth = (date: Date) => {
@@ -182,23 +178,24 @@ useEffect(() => {
            today.getFullYear() === currentDate.getFullYear();
   };
 
+    // Add new event/task
   const handleAddEvent = async () => {
     if (!newEvent.date || !newEvent.title) return;
     const eventToAdd = { ...newEvent };
-    setEvents(prev => [...prev, eventToAdd]);
-
-    const storedEvents = localStorage.getItem("events_local");
-    const localEvents = storedEvents ? JSON.parse(storedEvents) : [];
-    localEvents.push(eventToAdd);
-    localStorage.setItem("events_local", JSON.stringify(localEvents));
+    
 
     try {
       const { data, error } = await supabase.from("events").insert([eventToAdd]).select();
       if (!error && data?.[0]?.id) {
         eventToAdd.id = data[0].id;
-        localStorage.setItem("events_local", JSON.stringify(localEvents));
       }
-    } catch {}
+    } catch {} // fallback: local-only
+
+    setEvents(prev => [...prev, eventToAdd]);
+
+    const storedEvents = JSON.parse(localStorage.getItem("events_local") || "[]");
+    storedEvents.push(eventToAdd);
+    localStorage.setItem("events_local", JSON.stringify(storedEvents));
 
     setShowModal(false);
     setNewEvent({
@@ -209,6 +206,48 @@ useEffect(() => {
       color: "bg-primary/10 text-primary border-primary/20",
     });
   };
+
+  // Toggle completed
+  const toggleComplete = async (item: CalendarItem) => {
+    const updated = { ...item, completed: !item.completed };
+    if (item.type === "task") {
+      setTasks(prev => prev.map(t => t.id === item.id ? updated : t));
+      const storedTasks: any[] = JSON.parse(localStorage.getItem("tasks_local") || "[]");
+      const idx = storedTasks.findIndex(t => t.id === item.id || (!t.id && t.title === item.title));
+      if (idx >= 0) {
+        storedTasks[idx].completed = updated.completed;
+        localStorage.setItem("tasks_local", JSON.stringify(storedTasks));
+      }
+      if (item.id) await supabase.from("tasks").update({ completed: updated.completed }).eq("id", item.id);
+    } else {
+      setEvents(prev => prev.map(e => e.id === item.id ? updated : e));
+      const storedEvents: any[] = JSON.parse(localStorage.getItem("events_local") || "[]");
+      const idx = storedEvents.findIndex(e => e.id === item.id || (!e.id && e.title === item.title));
+      if (idx >= 0) {
+        storedEvents[idx].completed = updated.completed;
+        localStorage.setItem("events_local", JSON.stringify(storedEvents));
+      }
+      if (item.id) await supabase.from("events").update({ completed: updated.completed }).eq("id", item.id);
+    }
+  };
+
+  // Delete item
+  const deleteItem = async (item: CalendarItem) => {
+    if (item.type === "task") {
+      setTasks(prev => prev.filter(t => t.id !== item.id && (!t.id || t.title !== item.title)));
+      const storedTasks = JSON.parse(localStorage.getItem("tasks_local") || "[]")
+        .filter((t: any) => t.id !== item.id && (!t.id || t.title !== item.title));
+      localStorage.setItem("tasks_local", JSON.stringify(storedTasks));
+      if (item.id) await supabase.from("tasks").delete().eq("id", item.id);
+    } else {
+      setEvents(prev => prev.filter(e => e.id !== item.id && (!e.id || e.title !== item.title)));
+      const storedEvents = JSON.parse(localStorage.getItem("events_local") || "[]")
+        .filter((e: any) => e.id !== item.id && (!e.id || e.title !== item.title));
+      localStorage.setItem("events_local", JSON.stringify(storedEvents));
+      if (item.id) await supabase.from("events").delete().eq("id", item.id);
+    }
+  };
+
 
   return (
     <Layout>
@@ -227,7 +266,6 @@ useEffect(() => {
               <Button variant={view==="week"?"default":"ghost"} size="sm" onClick={()=>setView("week")}>Week</Button>
               <Button variant={view==="day"?"default":"ghost"} size="sm" onClick={()=>setView("day")}>Day</Button>
             </div>
-
             <Dialog open={showModal} onOpenChange={setShowModal}>
               <DialogTrigger asChild>
                 <Button><Plus className="h-4 w-4 mr-2"/> Add Event</Button>
@@ -237,50 +275,18 @@ useEffect(() => {
                   <DialogTitle>Add New Event</DialogTitle>
                   <DialogDescription>Fill in the event details</DialogDescription>
                 </DialogHeader>
-
                 <div className="space-y-2">
-                  <input
-                    type="text"
-                    placeholder="Title"
-                    className="input w-full"
-                    value={newEvent.title}
-                    onChange={e => setNewEvent({ ...newEvent, title: e.target.value })}
-                  />
-                  <input
-                    type="date"
-                    className="input w-full"
-                    value={newEvent.date}
-                    onChange={e => setNewEvent({ ...newEvent, date: e.target.value })}
-                  />
-
-                  {/* Time dropdown with 30-min intervals */}
-                  <select
-                    className="input w-full"
-                    value={newEvent.time}
-                    onChange={e => setNewEvent({ ...newEvent, time: e.target.value })}
-                  >
+                  <input type="text" placeholder="Title" className="input w-full" value={newEvent.title} onChange={e=>setNewEvent({...newEvent,title:e.target.value})}/>
+                  <input type="date" className="input w-full" value={newEvent.date} onChange={e=>setNewEvent({...newEvent,date:e.target.value})}/>
+                  <select className="input w-full" value={newEvent.time} onChange={e=>setNewEvent({...newEvent,time:e.target.value})}>
                     <option value="">Select Time</option>
-                    {Array.from({ length: 24 * 2 }).map((_, i) => {
-                      const hour = Math.floor(i / 2);
-                      const minute = i % 2 === 0 ? "00" : "30";
-                      const timeStr = `${hour.toString().padStart(2, "0")}:${minute}`;
-                      return <option key={timeStr} value={timeStr}>{timeStr}</option>;
+                    {Array.from({length:24*2}).map((_,i)=>{
+                      const hour=Math.floor(i/2); const minute=i%2===0?"00":"30"; const timeStr=`${hour.toString().padStart(2,"0")}:${minute}`;
+                      return <option key={timeStr} value={timeStr}>{timeStr}</option>
                     })}
                   </select>
-
-                  <input
-                    type="text"
-                    placeholder="Location"
-                    className="input w-full"
-                    value={newEvent.location}
-                    onChange={e => setNewEvent({ ...newEvent, location: e.target.value })}
-                  />
-
-                  <select
-                    className="input w-full"
-                    value={newEvent.type}
-                    onChange={e => setNewEvent({ ...newEvent, type: e.target.value })}
-                  >
+                  <input type="text" placeholder="Location" className="input w-full" value={newEvent.location} onChange={e=>setNewEvent({...newEvent,location:e.target.value})}/>
+                  <select className="input w-full" value={newEvent.type} onChange={e=>setNewEvent({...newEvent,type:e.target.value})}>
                     <option value="event">Event</option>
                     <option value="class">Class</option>
                     <option value="deadline">Deadline</option>
@@ -288,31 +294,13 @@ useEffect(() => {
                     <option value="task">Task</option>
                   </select>
                 </div>
-
                 <DialogFooter>
-                  <Button
-                    className="w-full"
-                    onClick={() => {
-                      if (!newEvent.title || !newEvent.date) {
-                        toast({
-                          title: "Missing fields",
-                          description: "Title and date are required.",
-                          variant: "destructive",
-                        });
-                        return;
-                      }
-                      handleAddEvent();
-                    }}
-                  >
-                    Add Event
-                  </Button>
+                  <Button className="w-full" onClick={()=>{ if(!newEvent.title||!newEvent.date){toast({title:"Missing fields",description:"Title and date are required.",variant:"destructive"}); return;} handleAddEvent(); }}>Add Event</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
         </div>
-
-
 
         {/* Calendar Grid */}
         <div className="grid lg:grid-cols-4 gap-6">
@@ -329,7 +317,7 @@ useEffect(() => {
                 </div>
               </CardHeader>
               <CardContent>
-                {view === "month" && (
+                {view==="month" && (
                   <>
                     <div className="grid grid-cols-7 gap-1 mb-4">
                       {weekDays.map(day=><div key={day} className="p-2 text-center text-sm font-medium text-muted-foreground">{day}</div>)}
@@ -342,7 +330,14 @@ useEffect(() => {
                               <div className={`text-sm font-medium mb-1 ${isToday(day)?'text-primary':''}`}>{day}</div>
                               <div className="space-y-1">
                                 {getItemsForDate(day).slice(0,2).map(i=>(
-                                  <div key={i.id||i.title} className={`text-xs p-1 rounded border ${i.color || 'bg-secondary/10 text-secondary border-secondary/20'} truncate`}>{i.title}</div>
+                                  <div key={i.id||i.title} className={`relative text-xs p-1 rounded border flex justify-between items-center ${i.color || 'bg-secondary/10 text-secondary border-secondary/20'} truncate`}>
+                                    <span className={`${i.completed?"line-through text-gray-400":""}`}>{i.title}</span>
+                                    <div className="flex items-center gap-1">
+                                      <input type="checkbox" checked={i.completed||false} onChange={()=>toggleComplete(i)} className="h-3 w-3"/>
+                                      <Trash2 className="h-3 w-3 cursor-pointer" onClick={()=>deleteItem(i)}/>
+                                    </div>
+                                    {i.completed && <span className="absolute top-0 right-0 text-red-500 font-bold text-xs pointer-events-none">×</span>}
+                                  </div>
                                 ))}
                                 {getItemsForDate(day).length>2 && <div className="text-xs text-muted-foreground">+{getItemsForDate(day).length-2} more</div>}
                               </div>
@@ -353,8 +348,8 @@ useEffect(() => {
                     </div>
                   </>
                 )}
-
-                {view === "week" && (
+                {/* Week & Day views remain unchanged but you can replicate the same checkbox + delete + overlay lo  gic */}
+                 {view === "week" && (
                   <>
                     {/* Weekday labels */}
                     <div className="grid grid-cols-7 gap-1 mb-2">
@@ -411,51 +406,36 @@ useEffect(() => {
                     </div>
                   </div>
                 )}
-
               </CardContent>
             </Card>
           </div>
 
-
-        {/* Upcoming Events & Tasks Sidebar */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Upcoming Items</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {(showAllEvents ? allItems : allItems.slice(0, 4)).map(i => (
-                <div key={i.id || i.title} className="space-y-2 p-3 rounded-lg border border-border">
-                  <h4 className="font-medium text-sm">{i.title}</h4>
-                  {i.time && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Clock className="h-3 w-3" /> {i.time}
+          {/* Upcoming Events & Tasks Sidebar */}
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Upcoming Items</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {(showAllEvents?allItems:allItems.slice(0,4)).map(i=>(
+                  <div key={i.id||i.title} className="space-y-2 p-3 rounded-lg border border-border flex justify-between items-center">
+                    <div>
+                      <h4 className="font-medium text-sm">{i.title}</h4>
+                      {i.time && <div className="flex items-center gap-2 text-xs text-muted-foreground"><Clock className="h-3 w-3"/> {i.time}</div>}
+                      {i.location && <div className="flex items-center gap-2 text-xs text-muted-foreground"><MapPin className="h-3 w-3"/> {i.location}</div>}
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground"><CalendarIcon className="h-3 w-3"/> {new Date(i.date).toLocaleDateString()}</div>
+                      <Badge variant="secondary" className={i.color || "bg-secondary/10 text-secondary border-secondary/20"}>{i.type}</Badge>
                     </div>
-                  )}
-                  {i.location && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <MapPin className="h-3 w-3" /> {i.location}
+                    <div className="flex items-center gap-1">
+                      <input type="checkbox" checked={i.completed||false} onChange={()=>toggleComplete(i)} className="h-4 w-4"/>
+                      <Trash2 className="h-4 w-4 cursor-pointer" onClick={()=>deleteItem(i)}/>
                     </div>
-                  )}
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <CalendarIcon className="h-3 w-3" /> {new Date(i.date).toLocaleDateString()}
                   </div>
-                  <Badge variant="secondary" className={i.color || "bg-secondary/10 text-secondary border-secondary/20"}>{i.type}</Badge>
-                </div>
-              ))}
-
-              {allItems.length > 4 && (
-                <Button
-                  variant="link"
-                  size="sm"
-                  onClick={() => setShowAllEvents(!showAllEvents)}
-                >
-                  {showAllEvents ? "Collapse" : "Show All"}
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                ))}
+                {allItems.length>4 && <Button variant="link" size="sm" onClick={()=>setShowAllEvents(!showAllEvents)}>{showAllEvents?"Collapse":"Show All"}</Button>}
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </Layout>
