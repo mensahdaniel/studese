@@ -22,7 +22,8 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
-  const [recentNotes, setRecentNotes] = useState<any[]>([]); // now from Supabase
+  const [recentNotes, setRecentNotes] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -48,7 +49,7 @@ const Dashboard = () => {
 
     fetchUser();
   }, [toast]);
-  
+
   // Fetch recent notes from Supabase
   useEffect(() => {
     const fetchNotes = async () => {
@@ -72,6 +73,34 @@ const Dashboard = () => {
 
     fetchNotes();
   }, [toast]);
+
+  // Fetch tasks from Supabase
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("tasks")
+          .select("*")
+          .order("dueDate", { ascending: true });
+
+        if (error) throw error;
+        setTasks(data || []);
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to load tasks.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    fetchTasks();
+  }, [toast]);
+
+  const todaysTasks = tasks.filter(task => {
+    const today = new Date().toISOString().split("T")[0];
+    return !task.completed && task.dueDate >= today;
+  });
 
   //fetch note count from supabase
   const [noteCount, setNoteCount] = useState<number>(0);
@@ -121,19 +150,6 @@ const Dashboard = () => {
     { time: "2:00 PM", subject: "Mathematics", location: "Room 150" },
     { time: "4:30 PM", subject: "Physics Lab", location: "Lab B" }
   ];
-
-  const todaysTasks = [
-    { task: "Submit Programming Assignment", urgent: true },
-    { task: "Read Chapter 5 - Biology", urgent: false },
-    { task: "Prepare for Math Quiz", urgent: true },
-    { task: "Team Project Meeting", urgent: false }
-  ];
-
- /* const recentNotes = [
-    { title: "Lecture Notes - CS 101", date: "Today" },
-    { title: "Study Group Ideas", date: "Yesterday" },
-    { title: "Research Paper Outline", date: "2 days ago" }
-  ];*/
 
   return (
     <Layout>
@@ -189,7 +205,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-sm font-medium">Pending Tasks</p>
-                <p className="text-2xl font-bold">7</p>
+                <p className="text-2xl font-bold">{tasks.filter(t => !t.completed).length}</p>
               </div>
             </CardContent>
           </Card>
@@ -213,7 +229,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-sm font-medium">Due Soon</p>
-                <p className="text-2xl font-bold">2</p>
+                <p className="text-2xl font-bold">{tasks.filter(t => !t.completed && new Date(t.dueDate) <= new Date()).length}</p>
               </div>
             </CardContent>
           </Card>
@@ -261,14 +277,14 @@ const Dashboard = () => {
               </Link>
             </CardHeader>
             <CardContent className="space-y-3">
-              {todaysTasks.map((task, index) => (
-                <div key={index} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-accent">
-                  <input type="checkbox" className="rounded" />
+              {todaysTasks.map((task) => (
+                <div key={task.id} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-accent">
+                  <input type="checkbox" className="rounded" checked={task.completed} />
                   <div className="flex-1">
-                    <p className={`text-sm ${task.urgent ? 'font-medium' : ''}`}>
-                      {task.task}
+                    <p className={`text-sm ${task.priority === "high" ? 'font-medium' : ''}`}>
+                      {task.title}
                     </p>
-                    {task.urgent && (
+                    {task.priority === "high" && (
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-destructive/10 text-destructive">
                         Urgent
                       </span>
