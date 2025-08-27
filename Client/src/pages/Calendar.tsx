@@ -27,9 +27,9 @@ interface CalendarItem {
   id?: number;
   title: string;
   type: string;
-  time: string;
+  time?: string;
   location?: string;
-  date: string;
+  date: string; // YYYY-MM-DD
   color?: string;
   completed?: boolean; // for tasks
 }
@@ -41,6 +41,8 @@ const Calendar = () => {
   const [events, setEvents] = useState<CalendarItem[]>([]);
   const [tasks, setTasks] = useState<CalendarItem[]>([]);
   const [showModal, setShowModal] = useState(false);
+  const [showAllEvents, setShowAllEvents] = useState(false);
+
   const [newEvent, setNewEvent] = useState<CalendarItem>({
     title: "",
     type: "event",
@@ -54,7 +56,7 @@ const Calendar = () => {
     const loadEvents = async () => {
       try {
         const storedEvents = localStorage.getItem("events_local");
-        const localEvents = storedEvents ? JSON.parse(storedEvents) : [];
+        const localEvents: CalendarItem[] = storedEvents ? JSON.parse(storedEvents) : [];
 
         let supabaseEvents: CalendarItem[] = [];
         try {
@@ -87,41 +89,56 @@ const Calendar = () => {
   }, [toast]);
 
   // Offline-first load for tasks
-  useEffect(() => {
-    const loadTasks = async () => {
+// Offline-first load for tasks
+useEffect(() => {
+  const loadTasks = async () => {
+    try {
+      const storedTasks = localStorage.getItem("tasks_local");
+      const localTasks = storedTasks ? JSON.parse(storedTasks) : [];
+
+      let supabaseTasks: any[] = [];
       try {
-        const storedTasks = localStorage.getItem("tasks_local");
-        const localTasks = storedTasks ? JSON.parse(storedTasks) : [];
+        const { data, error } = await supabase.from("tasks").select("*");
+        if (!error && data) supabaseTasks = data;
+      } catch {}
 
-        let supabaseTasks: CalendarItem[] = [];
+      // Map dueDate -> date for calendar
+      const mappedLocalTasks = localTasks
+        .filter(t => t.dueDate)
+        .map(t => ({ ...t, date: t.dueDate, type: "task", color: "bg-success/10 text-success border-success/20" }));
+
+      const mappedSupabaseTasks = supabaseTasks
+        .filter(t => t.dueDate)
+        .map(t => ({ ...t, date: t.dueDate, type: "task", color: "bg-success/10 text-success border-success/20" }));
+
+      const merged = [...mappedLocalTasks, ...mappedSupabaseTasks];
+      setTasks(merged);
+
+      // Sync local-only
+      for (const t of mappedLocalTasks.filter(t => !t.id)) {
         try {
-          const { data, error } = await supabase.from("tasks").select("*");
-          if (!error && data) supabaseTasks = data;
+          const { data, error } = await supabase.from("tasks").insert([{
+            title: t.title,
+            dueDate: t.dueDate,
+            completed: t.completed,
+            priority: t.priority
+          }]).select();
+          if (!error && data?.[0]?.id) {
+            t.id = data[0].id;
+            localStorage.setItem("tasks_local", JSON.stringify(localTasks));
+          }
         } catch {}
-
-        const merged = [...localTasks.filter(t => !t.id), ...supabaseTasks];
-        setTasks(merged);
-
-        // Sync local-only
-        for (const t of localTasks.filter(t => !t.id)) {
-          try {
-            const { data, error } = await supabase.from("tasks").insert([t]).select();
-            if (!error && data?.[0]?.id) {
-              t.id = data[0].id;
-              localStorage.setItem("tasks_local", JSON.stringify(localTasks));
-            }
-          } catch {}
-        }
-      } catch (error: any) {
-        toast({
-          title: "Error",
-          description: error.message || "Failed to load tasks",
-          variant: "destructive",
-        });
       }
-    };
-    loadTasks();
-  }, [toast]);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to load tasks",
+        variant: "destructive",
+      });
+    }
+  };
+  loadTasks();
+}, [toast]);
 
   const monthNames = [
     "January","February","March","April","May","June",
@@ -129,7 +146,8 @@ const Calendar = () => {
   ];
   const weekDays = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
-  const allItems = [...events, ...tasks];
+  // Merge events + tasks
+  const allItems = [...events, ...tasks].filter(i => i.date);
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -165,6 +183,7 @@ const Calendar = () => {
   };
 
   const handleAddEvent = async () => {
+    if (!newEvent.date || !newEvent.title) return;
     const eventToAdd = { ...newEvent };
     setEvents(prev => [...prev, eventToAdd]);
 
@@ -277,25 +296,45 @@ const Calendar = () => {
             </Card>
           </div>
 
-          {/* Upcoming Events & Tasks Sidebar */}
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Upcoming Items</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {allItems.slice(0,4).map(i=>(
-                  <div key={i.id||i.title} className="space-y-2 p-3 rounded-lg border border-border">
-                    <h4 className="font-medium text-sm">{i.title}</h4>
-                    {i.time && <div className="flex items-center gap-2 text-xs text-muted-foreground"><Clock className="h-3 w-3"/>{i.time}</div>}
-                    {i.location && <div className="flex items-center gap-2 text-xs text-muted-foreground"><MapPin className="h-3 w-3"/>{i.location}</div>}
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground"><CalendarIcon className="h-3 w-3"/>{new Date(i.date).toLocaleDateString()}</div>
-                    <Badge variant="secondary" className={i.color || "bg-secondary/10 text-secondary border-secondary/20"}>{i.type}</Badge>
+        {/* Upcoming Events & Tasks Sidebar */}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Upcoming Items</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {(showAllEvents ? allItems : allItems.slice(0, 4)).map(i => (
+                <div key={i.id || i.title} className="space-y-2 p-3 rounded-lg border border-border">
+                  <h4 className="font-medium text-sm">{i.title}</h4>
+                  {i.time && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Clock className="h-3 w-3" /> {i.time}
+                    </div>
+                  )}
+                  {i.location && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <MapPin className="h-3 w-3" /> {i.location}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <CalendarIcon className="h-3 w-3" /> {new Date(i.date).toLocaleDateString()}
                   </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
+                  <Badge variant="secondary" className={i.color || "bg-secondary/10 text-secondary border-secondary/20"}>{i.type}</Badge>
+                </div>
+              ))}
+
+              {allItems.length > 4 && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={() => setShowAllEvents(!showAllEvents)}
+                >
+                  {showAllEvents ? "Collapse" : "Show All"}
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        </div>
         </div>
       </div>
     </Layout>
