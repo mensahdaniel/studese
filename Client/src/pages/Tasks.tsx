@@ -44,11 +44,9 @@ const Tasks = () => {
     for (const task of unsyncedTasks) {
       try {
         const { error } = await supabase.from("tasks").insert([task]);
-        if (error) {
-          remainingTasks.push(task); // keep unsynced
-        }
+        if (error) remainingTasks.push(task);
       } catch {
-        remainingTasks.push(task); // keep unsynced
+        remainingTasks.push(task);
       }
     }
 
@@ -133,7 +131,51 @@ const Tasks = () => {
     });
   };
 
-  /** Filters & helper functions remain the same as your original Tasks component */
+  /** Toggle task completed status */
+  const handleToggleCompleted = async (task: any) => {
+    const updatedTask = { ...task, completed: !task.completed };
+
+    // Update locally
+    const updatedTasks = tasks.map(t => t === task ? updatedTask : t);
+    setTasks(updatedTasks);
+    localStorage.setItem(LOCAL_TASKS_KEY, JSON.stringify(updatedTasks));
+
+    // Queue for Supabase update if it has an id
+    if (task.id) {
+      try {
+        const { error } = await supabase
+          .from("tasks")
+          .update({ completed: updatedTask.completed })
+          .eq("id", task.id);
+        if (error) throw error;
+      } catch {
+        // keep offline update, try again on reconnect
+      }
+    }
+  };
+
+  /** Delete a task */
+  const handleDeleteTask = async (task: any) => {
+    // Remove locally
+    const updatedTasks = tasks.filter(t => t !== task);
+    setTasks(updatedTasks);
+    localStorage.setItem(LOCAL_TASKS_KEY, JSON.stringify(updatedTasks));
+
+    // Remove from Supabase if it has an id
+    if (task.id) {
+      try {
+        const { error } = await supabase
+          .from("tasks")
+          .delete()
+          .eq("id", task.id);
+        if (error) throw error;
+      } catch {
+        // keep offline deletion, maybe mark as "toDelete" for sync
+      }
+    }
+  };
+
+  /** Filters & helper functions */
   const filters = [
     { id: "all", name: "All Tasks", count: tasks.length },
     { id: "pending", name: "Pending", count: tasks.filter(t => !t.completed).length },
@@ -321,19 +363,32 @@ const Tasks = () => {
             <p className="text-center text-muted-foreground">Loading tasks...</p>
           ) : (
             filteredTasks.map((task) => (
-              <Card key={task.id} className={`transition-all ${task.completed ? 'opacity-60' : ''}`}>
+              <Card key={task.id || task.created_at} className={`transition-all ${task.completed ? 'opacity-60' : ''}`}>
                 <CardContent className="p-4">
                   <div className="flex items-start gap-4">
-                    <Checkbox checked={task.completed} className="mt-1" />
+                    <Checkbox
+                      checked={task.completed}
+                      className="mt-1"
+                      onCheckedChange={() => handleToggleCompleted(task)}
+                    />
                     <div className="flex-1 space-y-2">
                       <div className="flex items-start justify-between">
                         <h3 className={`font-medium ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
                           {task.title}
                         </h3>
-                        <Badge variant="outline" className={getPriorityColor(task.priority)}>
-                          <Flag className="h-3 w-3 mr-1" />
-                          {task.priority}
-                        </Badge>
+                        <div className="flex gap-2">
+                          <Badge variant="outline" className={getPriorityColor(task.priority)}>
+                            <Flag className="h-3 w-3 mr-1" />
+                            {task.priority}
+                          </Badge>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteTask(task)}
+                          >
+                            Delete
+                          </Button>
+                        </div>
                       </div>
                       <p className="text-sm text-muted-foreground">{task.description}</p>
                       <div className="flex items-center justify-between">
