@@ -227,6 +227,7 @@ useEffect(() => {
               <Button variant={view==="week"?"default":"ghost"} size="sm" onClick={()=>setView("week")}>Week</Button>
               <Button variant={view==="day"?"default":"ghost"} size="sm" onClick={()=>setView("day")}>Day</Button>
             </div>
+
             <Dialog open={showModal} onOpenChange={setShowModal}>
               <DialogTrigger asChild>
                 <Button><Plus className="h-4 w-4 mr-2"/> Add Event</Button>
@@ -236,12 +237,50 @@ useEffect(() => {
                   <DialogTitle>Add New Event</DialogTitle>
                   <DialogDescription>Fill in the event details</DialogDescription>
                 </DialogHeader>
+
                 <div className="space-y-2">
-                  <input type="text" placeholder="Title" className="input w-full" value={newEvent.title} onChange={e=>setNewEvent({...newEvent,title:e.target.value})}/>
-                  <input type="date" className="input w-full" value={newEvent.date} onChange={e=>setNewEvent({...newEvent,date:e.target.value})}/>
-                  <input type="text" placeholder="Time" className="input w-full" value={newEvent.time} onChange={e=>setNewEvent({...newEvent,time:e.target.value})}/>
-                  <input type="text" placeholder="Location" className="input w-full" value={newEvent.location} onChange={e=>setNewEvent({...newEvent,location:e.target.value})}/>
-                  <select className="input w-full" value={newEvent.type} onChange={e=>setNewEvent({...newEvent,type:e.target.value})}>
+                  <input
+                    type="text"
+                    placeholder="Title"
+                    className="input w-full"
+                    value={newEvent.title}
+                    onChange={e => setNewEvent({ ...newEvent, title: e.target.value })}
+                  />
+                  <input
+                    type="date"
+                    className="input w-full"
+                    value={newEvent.date}
+                    onChange={e => setNewEvent({ ...newEvent, date: e.target.value })}
+                  />
+
+                  {/* Time dropdown with 30-min intervals */}
+                  <select
+                    className="input w-full"
+                    value={newEvent.time}
+                    onChange={e => setNewEvent({ ...newEvent, time: e.target.value })}
+                  >
+                    <option value="">Select Time</option>
+                    {Array.from({ length: 24 * 2 }).map((_, i) => {
+                      const hour = Math.floor(i / 2);
+                      const minute = i % 2 === 0 ? "00" : "30";
+                      const timeStr = `${hour.toString().padStart(2, "0")}:${minute}`;
+                      return <option key={timeStr} value={timeStr}>{timeStr}</option>;
+                    })}
+                  </select>
+
+                  <input
+                    type="text"
+                    placeholder="Location"
+                    className="input w-full"
+                    value={newEvent.location}
+                    onChange={e => setNewEvent({ ...newEvent, location: e.target.value })}
+                  />
+
+                  <select
+                    className="input w-full"
+                    value={newEvent.type}
+                    onChange={e => setNewEvent({ ...newEvent, type: e.target.value })}
+                  >
                     <option value="event">Event</option>
                     <option value="class">Class</option>
                     <option value="deadline">Deadline</option>
@@ -249,13 +288,31 @@ useEffect(() => {
                     <option value="task">Task</option>
                   </select>
                 </div>
+
                 <DialogFooter>
-                  <Button onClick={handleAddEvent} className="w-full">Add Event</Button>
+                  <Button
+                    className="w-full"
+                    onClick={() => {
+                      if (!newEvent.title || !newEvent.date) {
+                        toast({
+                          title: "Missing fields",
+                          description: "Title and date are required.",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      handleAddEvent();
+                    }}
+                  >
+                    Add Event
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
         </div>
+
+
 
         {/* Calendar Grid */}
         <div className="grid lg:grid-cols-4 gap-6">
@@ -298,37 +355,63 @@ useEffect(() => {
                 )}
 
                 {view === "week" && (
-                  <div className="grid grid-cols-7 gap-1">
-                    {Array.from({length: 7}).map((_, i) => {
-                      const d = new Date(currentDate);
-                      d.setDate(currentDate.getDate() - currentDate.getDay() + i); // get week dates
-                      const dateString = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-                      const items = allItems.filter(e => e.date === dateString);
-                      return (
-                        <div key={i} className="min-h-[80px] p-1 border border-border rounded-lg">
-                          <div className="text-sm font-medium mb-1">{d.getDate()}</div>
-                          <div className="space-y-1">
-                            {items.map(i=>(
-                              <div key={i.id||i.title} className={`text-xs p-1 rounded border ${i.color || 'bg-secondary/10 text-secondary border-secondary/20'} truncate`}>{i.title}</div>
-                            ))}
+                  <>
+                    {/* Weekday labels */}
+                    <div className="grid grid-cols-7 gap-1 mb-2">
+                      {weekDays.map(day => (
+                        <div key={day} className="p-2 text-center text-sm font-medium text-muted-foreground">{day}</div>
+                      ))}
+                    </div>
+                    {/* Week days grid */}
+                    <div className="grid grid-cols-7 gap-1">
+                      {Array.from({ length: 7 }).map((_, i) => {
+                        const d = new Date(currentDate);
+                        d.setDate(currentDate.getDate() - currentDate.getDay() + i); // current week
+                        const dateString = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                        const items = allItems.filter(e => e.date === dateString);
+                        return (
+                          <div key={i} className={`min-h-[80px] p-1 border border-border rounded-lg ${isToday(d.getDate()) ? 'bg-primary/5 border-primary' : ''}`}>
+                            <div className="text-sm font-medium mb-1 text-center">{d.getDate()}</div>
+                            <div className="space-y-1">
+                              {items.map(i => (
+                                <div key={i.id || i.title} className={`text-xs p-1 rounded border ${i.color || 'bg-secondary/10 text-secondary border-secondary/20'} truncate`}>
+                                  {i.title}
+                                </div>
+                              ))}
+                              {items.length > 2 && <div className="text-xs text-muted-foreground">+{items.length-2} more</div>}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  </>
                 )}
+
 
                 {view === "day" && (
                   <div className="space-y-2">
-                    {getItemsForDate(currentDate.getDate()).map(i => (
-                      <div key={i.id||i.title} className={`p-2 border rounded ${i.color || 'bg-secondary/10 text-secondary border-secondary/20'}`}>
-                        <div className="font-medium">{i.title}</div>
-                        {i.time && <div className="text-xs text-muted-foreground">{i.time}</div>}
-                        {i.location && <div className="text-xs text-muted-foreground">{i.location}</div>}
-                      </div>
-                    ))}
+                    {/* Date header */}
+                    <div className="text-center text-lg font-medium mb-2">
+                      {currentDate.toDateString()}
+                    </div>
+                    {/* Events for the day */}
+                    <div className="space-y-1">
+                      {allItems.filter(i => i.date === currentDate.toISOString().split("T")[0])
+                        .map(i => (
+                          <div key={i.id || i.title} className={`p-2 border rounded ${i.color || 'bg-secondary/10 text-secondary border-secondary/20'}`}>
+                            <div className="font-medium">{i.title}</div>
+                            {i.time && <div className="text-xs text-muted-foreground">{i.time}</div>}
+                            {i.location && <div className="text-xs text-muted-foreground">{i.location}</div>}
+                            <Badge variant="secondary" className={i.color || "bg-secondary/10 text-secondary border-secondary/20"}>{i.type}</Badge>
+                          </div>
+                      ))}
+                      {allItems.filter(i => i.date === currentDate.toISOString().split("T")[0]).length === 0 && (
+                        <div className="text-sm text-muted-foreground text-center">No events or tasks</div>
+                      )}
+                    </div>
                   </div>
                 )}
+
               </CardContent>
             </Card>
           </div>
