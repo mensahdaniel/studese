@@ -32,6 +32,7 @@ const Dashboard = () => {
     return "Good evening";
   };
 
+  // Load user
   useEffect(() => {
     const fetchUser = async () => {
       try {
@@ -46,11 +47,10 @@ const Dashboard = () => {
         });
       }
     };
-
     fetchUser();
   }, [toast]);
 
-  // Fetch recent notes from Supabase
+  // Load recent notes
   useEffect(() => {
     const fetchNotes = async () => {
       try {
@@ -59,7 +59,6 @@ const Dashboard = () => {
           .select("*")
           .order("created_at", { ascending: false })
           .limit(5);
-
         if (error) throw error;
         setRecentNotes(data || []);
       } catch (error: any) {
@@ -70,21 +69,54 @@ const Dashboard = () => {
         });
       }
     };
-
     fetchNotes();
   }, [toast]);
 
-  // Fetch tasks from Supabase
+  // Load tasks (offline-first + Supabase sync)
   useEffect(() => {
-    const fetchTasks = async () => {
+    const loadTasks = async () => {
       try {
-        const { data, error } = await supabase
-          .from("tasks")
-          .select("*")
-          .order("dueDate", { ascending: true });
+        // 1️⃣ Load local tasks
+        const storedTasks = localStorage.getItem("tasks_local");
+        const localTasks = storedTasks ? JSON.parse(storedTasks) : [];
 
-        if (error) throw error;
-        setTasks(data || []);
+        // 2️⃣ Load Supabase tasks
+        let supabaseTasks: any[] = [];
+        try {
+          const { data, error } = await supabase
+            .from("tasks")
+            .select("*")
+            .order("dueDate", { ascending: true });
+          if (!error && data) supabaseTasks = data;
+        } catch {
+          // ignore if offline
+        }
+
+        // Merge tasks: local-only + synced
+        const mergedTasks = [
+          ...localTasks.filter(t => !t.id), // local-only (no Supabase id)
+          ...supabaseTasks
+        ];
+
+        setTasks(mergedTasks);
+
+        // 3️⃣ Attempt to sync local-only tasks to Supabase
+        for (const task of localTasks.filter(t => !t.id)) {
+          try {
+            const { data, error } = await supabase
+              .from("tasks")
+              .insert([{ title: task.title, dueDate: task.dueDate, completed: task.completed, priority: task.priority }])
+              .select();
+            if (!error && data?.[0]?.id) {
+              // update localStorage with Supabase id
+              task.id = data[0].id;
+              localStorage.setItem("tasks_local", JSON.stringify(localTasks));
+            }
+          } catch {
+            // ignore if offline
+          }
+        }
+
       } catch (error: any) {
         toast({
           title: "Error",
@@ -94,7 +126,7 @@ const Dashboard = () => {
       }
     };
 
-    fetchTasks();
+    loadTasks();
   }, [toast]);
 
   const todaysTasks = tasks.filter(task => {
@@ -104,14 +136,12 @@ const Dashboard = () => {
 
   //fetch note count from supabase
   const [noteCount, setNoteCount] = useState<number>(0);
-
   useEffect(() => {
     const fetchNoteCount = async () => {
      try {
       const { count, error } = await supabase
         .from("notes")
         .select("*", { count: "exact", head: true });
-
       if (error) throw error;
       setNoteCount(count || 0);
     } catch (error: any) {
@@ -122,10 +152,8 @@ const Dashboard = () => {
       });
     }
   };
-
   fetchNoteCount();
 }, [toast]);
-
 
   const handleSignOut = async () => {
     try {
@@ -278,7 +306,7 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent className="space-y-3">
               {todaysTasks.map((task) => (
-                <div key={task.id} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-accent">
+                <div key={task.id || task.title} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-accent">
                   <input type="checkbox" className="rounded" checked={task.completed} />
                   <div className="flex-1">
                     <p className={`text-sm ${task.priority === "high" ? 'font-medium' : ''}`}>
