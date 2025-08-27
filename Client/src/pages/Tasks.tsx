@@ -4,20 +4,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Plus,
-  CheckSquare,
-  Calendar,
-  Flag,
-  Search
-} from "lucide-react";
+import { Plus, CheckSquare, Calendar, Flag, Search } from "lucide-react";
 import Layout from "@/components/Layout";
 import { supabase } from "@/utils/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
+const LOCAL_TASKS_KEY = "tasks_local";
+
 const Tasks = () => {
   const [tasks, setTasks] = useState<any[]>([]);
+  const [unsyncedTasks, setUnsyncedTasks] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("all");
   const [loading, setLoading] = useState(false);
@@ -32,7 +29,40 @@ const Tasks = () => {
 
   const { toast } = useToast();
 
-  // Fetch tasks from Supabase
+  /** Load tasks from localStorage on mount */
+  useEffect(() => {
+    const storedTasks = localStorage.getItem(LOCAL_TASKS_KEY);
+    if (storedTasks) setTasks(JSON.parse(storedTasks));
+  }, []);
+
+  /** Sync unsynced tasks to Supabase */
+  const trySyncTasks = async () => {
+    if (unsyncedTasks.length === 0) return;
+
+    const remainingTasks: any[] = [];
+
+    for (const task of unsyncedTasks) {
+      try {
+        const { error } = await supabase.from("tasks").insert([task]);
+        if (error) {
+          remainingTasks.push(task); // keep unsynced
+        }
+      } catch {
+        remainingTasks.push(task); // keep unsynced
+      }
+    }
+
+    setUnsyncedTasks(remainingTasks);
+  };
+
+  /** Attempt sync on reconnect */
+  useEffect(() => {
+    const handleOnline = () => trySyncTasks();
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, [unsyncedTasks]);
+
+  /** Fetch tasks from Supabase (merge with local tasks) */
   const fetchTasks = async () => {
     try {
       setLoading(true);
@@ -42,7 +72,12 @@ const Tasks = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setTasks(data || []);
+      const mergedTasks = [
+        ...tasks.filter(t => t.id == null), // local-only tasks
+        ...(data || [])
+      ];
+      setTasks(mergedTasks);
+      localStorage.setItem(LOCAL_TASKS_KEY, JSON.stringify(mergedTasks));
     } catch (error: any) {
       toast({
         title: "Error",
@@ -58,8 +93,8 @@ const Tasks = () => {
     fetchTasks();
   }, []);
 
-  // Add new task
-  const handleAddTask = async () => {
+  /** Save task locally + queue for syncing */
+  const handleAddTask = () => {
     if (!newTask.title || !newTask.dueDate) {
       toast({
         title: "Missing fields",
@@ -69,33 +104,36 @@ const Tasks = () => {
       return;
     }
 
-    try {
-      const { error } = await supabase.from("tasks").insert([newTask]);
-      if (error) throw error;
+    const taskToAdd = {
+      ...newTask,
+      completed: false,
+      created_at: new Date().toISOString()
+    };
 
-      toast({
-        title: "Task added",
-        description: "Your new task has been created successfully."
-      });
+    // Save locally
+    const updatedTasks = [taskToAdd, ...tasks];
+    setTasks(updatedTasks);
+    localStorage.setItem(LOCAL_TASKS_KEY, JSON.stringify(updatedTasks));
 
-      setNewTask({
-        title: "",
-        description: "",
-        category: "personal",
-        priority: "medium",
-        dueDate: ""
-      });
+    // Queue for Supabase sync
+    setUnsyncedTasks(prev => [...prev, taskToAdd]);
+    trySyncTasks();
 
-      fetchTasks();
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to add task.",
-        variant: "destructive"
-      });
-    }
+    toast({
+      title: "Task added",
+      description: "Your new task has been saved locally."
+    });
+
+    setNewTask({
+      title: "",
+      description: "",
+      category: "personal",
+      priority: "medium",
+      dueDate: ""
+    });
   };
 
+  /** Filters & helper functions remain the same as your original Tasks component */
   const filters = [
     { id: "all", name: "All Tasks", count: tasks.length },
     { id: "pending", name: "Pending", count: tasks.filter(t => !t.completed).length },
@@ -128,18 +166,10 @@ const Tasks = () => {
     let matchesFilter = true;
 
     switch (selectedFilter) {
-      case "pending":
-        matchesFilter = !task.completed;
-        break;
-      case "completed":
-        matchesFilter = task.completed;
-        break;
-      case "overdue":
-        matchesFilter = new Date(task.dueDate) < new Date() && !task.completed;
-        break;
-      case "today":
-        matchesFilter = task.dueDate === new Date().toISOString().split("T")[0];
-        break;
+      case "pending": matchesFilter = !task.completed; break;
+      case "completed": matchesFilter = task.completed; break;
+      case "overdue": matchesFilter = new Date(task.dueDate) < new Date() && !task.completed; break;
+      case "today": matchesFilter = task.dueDate === new Date().toISOString().split("T")[0]; break;
     }
 
     return matchesSearch && matchesFilter;
