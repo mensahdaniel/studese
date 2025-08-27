@@ -272,29 +272,67 @@ useEffect(() => {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-7 gap-1 mb-4">
-                  {weekDays.map(day=><div key={day} className="p-2 text-center text-sm font-medium text-muted-foreground">{day}</div>)}
-                </div>
-                <div className="grid grid-cols-7 gap-1">
-                  {getDaysInMonth(currentDate).map((day,index)=>(
-                    <div key={index} className={`min-h-[80px] p-1 border border-border rounded-lg ${day?'hover:bg-accent cursor-pointer':''} ${isToday(day||0)?'bg-primary/5 border-primary':''}`}>
-                      {day && (
-                        <>
-                          <div className={`text-sm font-medium mb-1 ${isToday(day)?'text-primary':''}`}>{day}</div>
+                {view === "month" && (
+                  <>
+                    <div className="grid grid-cols-7 gap-1 mb-4">
+                      {weekDays.map(day=><div key={day} className="p-2 text-center text-sm font-medium text-muted-foreground">{day}</div>)}
+                    </div>
+                    <div className="grid grid-cols-7 gap-1">
+                      {getDaysInMonth(currentDate).map((day,index)=>(
+                        <div key={index} className={`min-h-[80px] p-1 border border-border rounded-lg ${day?'hover:bg-accent cursor-pointer':''} ${isToday(day||0)?'bg-primary/5 border-primary':''}`}>
+                          {day && (
+                            <>
+                              <div className={`text-sm font-medium mb-1 ${isToday(day)?'text-primary':''}`}>{day}</div>
+                              <div className="space-y-1">
+                                {getItemsForDate(day).slice(0,2).map(i=>(
+                                  <div key={i.id||i.title} className={`text-xs p-1 rounded border ${i.color || 'bg-secondary/10 text-secondary border-secondary/20'} truncate`}>{i.title}</div>
+                                ))}
+                                {getItemsForDate(day).length>2 && <div className="text-xs text-muted-foreground">+{getItemsForDate(day).length-2} more</div>}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {view === "week" && (
+                  <div className="grid grid-cols-7 gap-1">
+                    {Array.from({length: 7}).map((_, i) => {
+                      const d = new Date(currentDate);
+                      d.setDate(currentDate.getDate() - currentDate.getDay() + i); // get week dates
+                      const dateString = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                      const items = allItems.filter(e => e.date === dateString);
+                      return (
+                        <div key={i} className="min-h-[80px] p-1 border border-border rounded-lg">
+                          <div className="text-sm font-medium mb-1">{d.getDate()}</div>
                           <div className="space-y-1">
-                            {getItemsForDate(day).slice(0,2).map(i=>(
+                            {items.map(i=>(
                               <div key={i.id||i.title} className={`text-xs p-1 rounded border ${i.color || 'bg-secondary/10 text-secondary border-secondary/20'} truncate`}>{i.title}</div>
                             ))}
-                            {getItemsForDate(day).length>2 && <div className="text-xs text-muted-foreground">+{getItemsForDate(day).length-2} more</div>}
                           </div>
-                        </>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {view === "day" && (
+                  <div className="space-y-2">
+                    {getItemsForDate(currentDate.getDate()).map(i => (
+                      <div key={i.id||i.title} className={`p-2 border rounded ${i.color || 'bg-secondary/10 text-secondary border-secondary/20'}`}>
+                        <div className="font-medium">{i.title}</div>
+                        {i.time && <div className="text-xs text-muted-foreground">{i.time}</div>}
+                        {i.location && <div className="text-xs text-muted-foreground">{i.location}</div>}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
+
 
         {/* Upcoming Events & Tasks Sidebar */}
         <div className="space-y-6">
