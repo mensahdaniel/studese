@@ -16,7 +16,7 @@ import "@excalidraw/excalidraw/index.css";
 
 // Define a minimal default appState to avoid collaborators error
 const defaultAppState = {
-  collaborators: [], // Ensure this is an array
+  collaborators: new Map(), // Must be a Map, not array
   viewBackgroundColor: "#ffffff", // Default background
 };
 
@@ -57,6 +57,12 @@ const NoteEditor = () => {
           return;
         }
 
+        // Convert collaborators object back to Map if needed
+        const loadedAppState = data.scene.appState || {};
+        const collaborators = loadedAppState.collaborators
+          ? new Map(Object.entries(loadedAppState.collaborators))
+          : new Map();
+
         setTitle(data.title);
         setCategory(data.category);
         setDate(data.date);
@@ -65,7 +71,8 @@ const NoteEditor = () => {
           elements: data.scene.elements || [],
           appState: {
             ...defaultAppState,
-            ...(data.scene.appState || {}), // Merge with default to ensure collaborators exists
+            ...loadedAppState,
+            collaborators, // Ensure it's a Map
           },
           files: data.scene.files || {},
         });
