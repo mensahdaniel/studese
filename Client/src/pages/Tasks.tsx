@@ -8,187 +8,131 @@ import { Plus, CheckSquare, Calendar, Flag, Search } from "lucide-react";
 import Layout from "@/components/Layout";
 import { supabase } from "@/utils/supabase";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
-
-const LOCAL_TASKS_KEY = "tasks_local";
+import { formatDistanceToNow, isBefore, subDays } from "date-fns";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const Tasks = () => {
   const [tasks, setTasks] = useState<any[]>([]);
-  const [unsyncedTasks, setUnsyncedTasks] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("all");
   const [loading, setLoading] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const { toast } = useToast();
 
   const [newTask, setNewTask] = useState({
     title: "",
     description: "",
     category: "personal",
     priority: "medium",
-    dueDate: ""
+    due_date: ""
   });
 
-  const { toast } = useToast();
-
-  /** Load tasks from localStorage on mount */
   useEffect(() => {
-    const storedTasks = localStorage.getItem(LOCAL_TASKS_KEY);
-    if (storedTasks) setTasks(JSON.parse(storedTasks));
-  }, []);
-
-  /** Sync unsynced tasks to Supabase */
-  const trySyncTasks = async () => {
-    if (unsyncedTasks.length === 0) return;
-
-    const remainingTasks: any[] = [];
-
-    for (const task of unsyncedTasks) {
-      try {
-        const { error } = await supabase.from("tasks").insert([task]);
-        if (error) remainingTasks.push(task);
-      } catch {
-        remainingTasks.push(task);
-      }
-    }
-
-    setUnsyncedTasks(remainingTasks);
-  };
-
-  /** Attempt sync on reconnect */
-  useEffect(() => {
-    const handleOnline = () => trySyncTasks();
-    window.addEventListener("online", handleOnline);
-    return () => window.removeEventListener("online", handleOnline);
-  }, [unsyncedTasks]);
-
-  /** Fetch tasks from Supabase (merge with local tasks) */
-  const fetchTasks = async () => {
-    try {
+    const fetchTasks = async () => {
       setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from("tasks")
         .select("*")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      const mergedTasks = [
-        ...tasks.filter(t => t.id == null), // local-only tasks
-        ...(data || [])
-      ];
-      setTasks(mergedTasks);
-      localStorage.setItem(LOCAL_TASKS_KEY, JSON.stringify(mergedTasks));
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to load tasks.",
-        variant: "destructive"
-      });
-    } finally {
+      if (error) {
+        toast({ title: "Error", description: error.message, variant: "destructive" });
+      } else {
+        const updatedTasks = (data || []).map(task => ({
+          ...task,
+          dynamic_priority: calculateDynamicPriority(task.due_date)
+        }));
+        setTasks(updatedTasks);
+      }
       setLoading(false);
-    }
+    };
+
+    fetchTasks();
+  }, [toast]);
+
+  const calculateDynamicPriority = (dueDate: string) => {
+    const due = new Date(dueDate);
+    const today = new Date();
+    if (isBefore(due, subDays(today, 0))) return "high";  // Overdue or today
+    if (isBefore(due, subDays(today, -2))) return "high";  // <2 days
+    if (isBefore(due, subDays(today, -7))) return "medium";  // <7 days
+    return "low";
   };
 
-  useEffect(() => {
-    fetchTasks();
-  }, []);
+  const handleAddTask = async () => {
+    if (!newTask.title || !newTask.due_date) {
+      toast({ title: "Missing fields", description: "Title and due date required.", variant: "destructive" });
+      return;
+    }
 
-  /** Save task locally + queue for syncing */
-  const handleAddTask = () => {
-    if (!newTask.title || !newTask.dueDate) {
-      toast({
-        title: "Missing fields",
-        description: "Please provide a title and due date.",
-        variant: "destructive"
-      });
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
       return;
     }
 
     const taskToAdd = {
       ...newTask,
-      completed: false,
-      created_at: new Date().toISOString()
+      user_id: user.id,
+      completed: false
     };
 
-    // Save locally
-    const updatedTasks = [taskToAdd, ...tasks];
-    setTasks(updatedTasks);
-    localStorage.setItem(LOCAL_TASKS_KEY, JSON.stringify(updatedTasks));
-
-    // Queue for Supabase sync
-    setUnsyncedTasks(prev => [...prev, taskToAdd]);
-    trySyncTasks();
-
-    toast({
-      title: "Task added",
-      description: "Your new task has been saved locally."
-    });
-
-    setNewTask({
-      title: "",
-      description: "",
-      category: "personal",
-      priority: "medium",
-      dueDate: ""
-    });
+    const { data, error } = await supabase.from("tasks").insert([taskToAdd]).select();
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      const addedTask = { ...data[0], dynamic_priority: calculateDynamicPriority(data[0].due_date) };
+      setTasks([addedTask, ...tasks]);
+      toast({ title: "Success", description: "Task added!" });
+      setShowForm(false);
+      setNewTask({ title: "", description: "", category: "personal", priority: "medium", due_date: "" });
+    }
   };
 
-  /** Toggle task completed status */
   const handleToggleCompleted = async (task: any) => {
+    if (!task.id) {
+      toast({ title: "Error", description: "Task ID missing.", variant: "destructive" });
+      return;
+    }
+
     const updatedTask = { ...task, completed: !task.completed };
-
-    // Update locally
-    const updatedTasks = tasks.map(t => t === task ? updatedTask : t);
-    setTasks(updatedTasks);
-    localStorage.setItem(LOCAL_TASKS_KEY, JSON.stringify(updatedTasks));
-
-    // Queue for Supabase update if it has an id
-    if (task.id) {
-      try {
-        const { error } = await supabase
-          .from("tasks")
-          .update({ completed: updatedTask.completed })
-          .eq("id", task.id);
-        if (error) throw error;
-      } catch {
-        // keep offline update, try again on reconnect
-      }
+    const { error } = await supabase.from("tasks").update(updatedTask).eq("id", task.id);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      setTasks(tasks.map(t => t.id === task.id ? { ...t, completed: updatedTask.completed, dynamic_priority: calculateDynamicPriority(t.due_date) } : t));
+      toast({ title: "Success", description: `Task marked as ${updatedTask.completed ? "completed" : "incomplete"}!` });
     }
   };
 
-  /** Delete a task */
   const handleDeleteTask = async (task: any) => {
-    // Remove locally
-    const updatedTasks = tasks.filter(t => t !== task);
-    setTasks(updatedTasks);
-    localStorage.setItem(LOCAL_TASKS_KEY, JSON.stringify(updatedTasks));
+    if (!task.id) {
+      toast({ title: "Error", description: "Task ID missing.", variant: "destructive" });
+      return;
+    }
 
-    // Remove from Supabase if it has an id
-    if (task.id) {
-      try {
-        const { error } = await supabase
-          .from("tasks")
-          .delete()
-          .eq("id", task.id);
-        if (error) throw error;
-      } catch {
-        // keep offline deletion, maybe mark as "toDelete" for sync
-      }
+    const { error } = await supabase.from("tasks").delete().eq("id", task.id);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      setTasks(tasks.filter(t => t.id !== task.id));
+      toast({ title: "Success", description: "Task deleted!" });
     }
   };
-
-  /** Filters & helper functions */
-  const filters = [
-    { id: "all", name: "All Tasks", count: tasks.length },
-    { id: "pending", name: "Pending", count: tasks.filter(t => !t.completed).length },
-    { id: "completed", name: "Completed", count: tasks.filter(t => t.completed).length },
-    { id: "overdue", name: "Overdue", count: tasks.filter(t => new Date(t.dueDate) < new Date() && !t.completed).length },
-    { id: "today", name: "Due Today", count: tasks.filter(t => t.dueDate === new Date().toISOString().split("T")[0]).length }
-  ];
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case "high": return "bg-destructive/10 text-destructive border-destructive/20";
-      case "medium": return "bg-warning/10 text-warning border-warning/20";
-      case "low": return "bg-success/10 text-success border-success/20";
+      case "high": return "bg-red-500/10 text-red-600";
+      case "medium": return "bg-yellow-500/10 text-yellow-600";
+      case "low": return "bg-green-500/10 text-green-600";
       default: return "bg-muted text-muted-foreground";
     }
   };
@@ -203,96 +147,21 @@ const Tasks = () => {
     }
   };
 
+  const getDaysUntilDue = (dueDate: string) => {
+    return formatDistanceToNow(new Date(dueDate), { addSuffix: true });
+  };
+
   const filteredTasks = tasks.filter(task => {
-    const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase());
-    let matchesFilter = true;
-
-    switch (selectedFilter) {
-      case "pending": matchesFilter = !task.completed; break;
-      case "completed": matchesFilter = task.completed; break;
-      case "overdue": matchesFilter = new Date(task.dueDate) < new Date() && !task.completed; break;
-      case "today": matchesFilter = task.dueDate === new Date().toISOString().split("T")[0]; break;
-    }
-
+    const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          task.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = selectedFilter === "all" || task.dynamic_priority === selectedFilter || (selectedFilter === "completed" && task.completed);
     return matchesSearch && matchesFilter;
   });
-
-  const getDaysUntilDue = (dueDate: string) => {
-    const due = new Date(dueDate);
-    const today = new Date();
-    const diffTime = due.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays < 0) return "Overdue";
-    if (diffDays === 0) return "Due today";
-    if (diffDays === 1) return "Due tomorrow";
-    return `Due in ${diffDays} days`;
-  };
 
   return (
     <Layout>
       <div className="p-6 space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <CheckSquare className="h-8 w-8" />
-              Tasks
-            </h1>
-            <p className="text-muted-foreground">Stay on top of your assignments and deadlines</p>
-          </div>
-        </div>
-
-        {/* Add Task Form */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Add New Task</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Input
-              placeholder="Title"
-              value={newTask.title}
-              onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-            />
-            <Input
-              placeholder="Description"
-              value={newTask.description}
-              onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-            />
-            <Input
-              type="date"
-              value={newTask.dueDate}
-              onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
-            />
-            <div className="flex gap-2">
-              <select
-                className="border rounded p-2"
-                value={newTask.priority}
-                onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
-              >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
-              <select
-                className="border rounded p-2"
-                value={newTask.category}
-                onChange={(e) => setNewTask({ ...newTask, category: e.target.value })}
-              >
-                <option value="personal">Personal</option>
-                <option value="academic">Academic</option>
-                <option value="study">Study</option>
-                <option value="collaborative">Collaborative</option>
-              </select>
-            </div>
-            <Button onClick={handleAddTask} className="w-full">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Task
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Search and Filters */}
+        {/* Search */}
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -303,72 +172,61 @@ const Tasks = () => {
           />
         </div>
 
-        {/* Filter Tabs */}
-        <div className="flex flex-wrap gap-2">
-          {filters.map((filter) => (
-            <Button
-              key={filter.id}
-              variant={selectedFilter === filter.id ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedFilter(filter.id)}
-              className="text-sm"
-            >
-              {filter.name} ({filter.count})
-            </Button>
-          ))}
-        </div>
+        {/* Add Task Button */}
+        <Button onClick={() => setShowForm(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Task
+        </Button>
 
-        {/* Tasks Overview Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* Add Task Form */}
+        {showForm && (
           <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-primary">
-                {tasks.filter(t => !t.completed).length}
-              </div>
-              <p className="text-sm text-muted-foreground">Pending Tasks</p>
+            <CardHeader>
+              <CardTitle>Add New Task</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Input
+                placeholder="Title"
+                value={newTask.title}
+                onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+              />
+              <Input
+                placeholder="Description"
+                value={newTask.description}
+                onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+              />
+              <Select value={newTask.category} onValueChange={(val) => setNewTask({ ...newTask, category: val })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="personal">Personal</SelectItem>
+                  <SelectItem value="academic">Academic</SelectItem>
+                  <SelectItem value="study">Study</SelectItem>
+                  <SelectItem value="collaborative">Collaborative</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                type="date"
+                value={newTask.due_date}
+                onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
+              />
+              <Button onClick={handleAddTask}>Save Task</Button>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-success">
-                {tasks.filter(t => t.completed).length}
-              </div>
-              <p className="text-sm text-muted-foreground">Completed</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-destructive">
-                {tasks.filter(t => t.priority === "high" && !t.completed).length}
-              </div>
-              <p className="text-sm text-muted-foreground">High Priority</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-warning">
-                {tasks.filter(t => new Date(t.dueDate) < new Date() && !t.completed).length}
-              </div>
-              <p className="text-sm text-muted-foreground">Overdue</p>
-            </CardContent>
-          </Card>
-        </div>
+        )}
 
         {/* Tasks List */}
         <div className="space-y-4">
           {loading ? (
-            <p className="text-center text-muted-foreground">Loading tasks...</p>
+            <p>Loading tasks...</p>
           ) : (
             filteredTasks.map((task) => (
-              <Card key={task.id || task.created_at} className={`transition-all ${task.completed ? 'opacity-60' : ''}`}>
+              <Card key={task.id}>
                 <CardContent className="p-4">
                   <div className="flex items-start gap-4">
                     <Checkbox
                       checked={task.completed}
-                      className="mt-1"
                       onCheckedChange={() => handleToggleCompleted(task)}
                     />
                     <div className="flex-1 space-y-2">
@@ -377,9 +235,9 @@ const Tasks = () => {
                           {task.title}
                         </h3>
                         <div className="flex gap-2">
-                          <Badge variant="outline" className={getPriorityColor(task.priority)}>
+                          <Badge variant="outline" className={getPriorityColor(task.dynamic_priority)}>
                             <Flag className="h-3 w-3 mr-1" />
-                            {task.priority}
+                            {task.dynamic_priority}
                           </Badge>
                           <Button
                             variant="destructive"
@@ -397,7 +255,7 @@ const Tasks = () => {
                         </Badge>
                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
                           <Calendar className="h-4 w-4" />
-                          {getDaysUntilDue(task.dueDate)}
+                          {getDaysUntilDue(task.due_date)}
                         </div>
                       </div>
                     </div>
@@ -416,10 +274,6 @@ const Tasks = () => {
               <p className="text-muted-foreground mb-4">
                 {searchTerm ? "Try adjusting your search terms" : "Add your first task to get started"}
               </p>
-              <Button onClick={handleAddTask}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Task
-              </Button>
             </CardContent>
           </Card>
         )}

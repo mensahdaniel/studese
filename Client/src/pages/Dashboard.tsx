@@ -7,23 +7,30 @@ import {
   FileText, 
   Plus, 
   Clock,
+  Badge,
   BookOpen,
   AlertCircle,
   LogOut
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
-import ThemeToggle from "@/components/ThemeToggle";
 import { supabase } from "@/utils/supabase";
 import { useToast } from "@/hooks/use-toast";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, isBefore, subDays } from "date-fns";
+
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString(); // or use a custom format
+};
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
   const [recentNotes, setRecentNotes] = useState<any[]>([]);
-  const [tasks, setTasks] = useState<any[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
+  const [todaysTasks, setTodaysTasks] = useState<any[]>([]);
+  const [noteCount, setNoteCount] = useState(0);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -32,365 +39,182 @@ const Dashboard = () => {
     return "Good evening";
   };
 
-  // Load user
   useEffect(() => {
     const fetchUser = async () => {
-      try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error) throw error;
-        setUser(user);
-      } catch (error: any) {
-        toast({
-          title: "Error",
-          description: error.message || "Failed to load user data.",
-          variant: "destructive",
-        });
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error || !user) {
+        toast({ title: "Error", description: "Please log in.", variant: "destructive" });
+        navigate("/login");
+        return;
       }
+      setUser(user);
     };
+
     fetchUser();
-  }, [toast]);
+  }, [toast, navigate]);
 
-  // Load recent notes
   useEffect(() => {
-    const fetchNotes = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("notes")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .limit(5);
-        if (error) throw error;
-        setRecentNotes(data || []);
-      } catch (error: any) {
-        toast({
-          title: "Error",
-          description: error.message || "Failed to load notes.",
-          variant: "destructive",
-        });
-      }
-    };
-    fetchNotes();
-  }, [toast]);
+    if (!user) return;
 
-  // Load tasks (offline-first + Supabase sync)
-  useEffect(() => {
-    const loadTasks = async () => {
-      try {
-        // 1️⃣ Load local tasks
-        const storedTasks = localStorage.getItem("tasks_local");
-        const localTasks = storedTasks ? JSON.parse(storedTasks) : [];
-
-        // 2️⃣ Load Supabase tasks
-        let supabaseTasks: any[] = [];
-        try {
-          const { data, error } = await supabase
-            .from("tasks")
-            .select("*")
-            .order("dueDate", { ascending: true });
-          if (!error && data) supabaseTasks = data;
-        } catch {
-          // ignore if offline
-        }
-
-        // Merge tasks: local-only + synced
-        const mergedTasks = [
-          ...localTasks.filter(t => !t.id), // local-only (no Supabase id)
-          ...supabaseTasks
-        ];
-
-        setTasks(mergedTasks);
-
-        // 3️⃣ Attempt to sync local-only tasks to Supabase
-        for (const task of localTasks.filter(t => !t.id)) {
-          try {
-            const { data, error } = await supabase
-              .from("tasks")
-              .insert([{ title: task.title, dueDate: task.dueDate, completed: task.completed, priority: task.priority }])
-              .select();
-            if (!error && data?.[0]?.id) {
-              // update localStorage with Supabase id
-              task.id = data[0].id;
-              localStorage.setItem("tasks_local", JSON.stringify(localTasks));
-            }
-          } catch {
-            // ignore if offline
-          }
-        }
-
-      } catch (error: any) {
-        toast({
-          title: "Error",
-          description: error.message || "Failed to load tasks.",
-          variant: "destructive",
-        });
-      }
-    };
-
-    loadTasks();
-  }, [toast]);
-
-  const todaysTasks = tasks.filter(task => {
-    const today = new Date().toISOString().split("T")[0];
-    return !task.completed && task.dueDate >= today;
-  });
-
-  //fetch note count from supabase
-  const [noteCount, setNoteCount] = useState<number>(0);
-  useEffect(() => {
-    const fetchNoteCount = async () => {
-     try {
-      const { count, error } = await supabase
+    const fetchData = async () => {
+      // Recent Notes
+      const { data: notesData, error: notesError } = await supabase
         .from("notes")
-        .select("*", { count: "exact", head: true });
-      if (error) throw error;
-      setNoteCount(count || 0);
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to load note count.",
-        variant: "destructive",
-      });
-    }
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      if (notesError) toast({ title: "Error", description: notesError.message, variant: "destructive" });
+      else setRecentNotes(notesData || []);
+
+      // Note Count
+      const { count: noteCount, error: countError } = await supabase
+        .from("notes")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id);
+
+      if (countError) toast({ title: "Error", description: countError.message, variant: "destructive" });
+      else setNoteCount(noteCount || 0);
+
+      // Upcoming Events (includes classes)
+      const { data: eventsData, error: eventsError } = await supabase
+        .from("events")
+        .select("*")
+        .eq("user_id", user.id)
+        .gte("date", new Date().toISOString().split("T")[0])  // Upcoming only
+        .order("date", { ascending: true });
+
+      if (eventsError) toast({ title: "Error", description: eventsError.message, variant: "destructive" });
+      else setUpcomingEvents(eventsData || []);
+
+      // Today's Tasks (with dynamic priority)
+      const { data: tasksData, error: tasksError } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("completed", false);
+
+      if (tasksError) toast({ title: "Error", description: tasksError.message, variant: "destructive" });
+      else {
+        const updatedTasks = (tasksData || []).map(task => ({
+          ...task,
+          dynamic_priority: calculateDynamicPriority(task.due_date),
+          urgent: isBefore(new Date(task.due_date), subDays(new Date(), 0))
+        }));
+        setTodaysTasks(updatedTasks);
+      }
+    };
+
+    fetchData();
+  }, [user, toast]);
+
+  const calculateDynamicPriority = (dueDate: string) => {
+    const due = new Date(dueDate);
+    const today = new Date();
+    if (isBefore(due, subDays(today, 0))) return "high";
+    if (isBefore(due, subDays(today, -2))) return "high";
+    if (isBefore(due, subDays(today, -7))) return "medium";
+    return "low";
   };
-  fetchNoteCount();
-}, [toast]);
 
   const handleSignOut = async () => {
-    try {
-      await supabase.auth.signOut();
-      toast({
-        title: "Signed out",
-        description: "You have been successfully signed out.",
-      });
-      navigate("/login");
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to sign out.",
-        variant: "destructive",
-      });
-    }
+    await supabase.auth.signOut();
+    toast({ title: "Signed out", description: "See you soon!" });
+    navigate("/login");
   };
-
-  // Mock data for demonstration
-  const upcomingClasses = [
-    { time: "9:00 AM", subject: "Computer Science 101", location: "Room 204" },
-    { time: "2:00 PM", subject: "Mathematics", location: "Room 150" },
-    { time: "4:30 PM", subject: "Physics Lab", location: "Lab B" }
-  ];
 
   return (
     <Layout>
       <div className="p-6 space-y-6">
-        {/* Header */}
+        {/* Greeting */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold">
-              {getGreeting()}, {user?.user_metadata?.username || user?.email.split('@')[0] || 'User'}! 👋
-            </h1>
-            <p className="text-muted-foreground">Here's what's happening today ✨</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <div className="text-sm text-muted-foreground">
-              {new Date().toLocaleDateString('en-US', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              })}
-            </div>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleSignOut}
-              className="flex items-center gap-2"
-            >
-              <LogOut className="h-4 w-4" />
-              Sign Out
-            </Button>
-          </div>
+          <h1 className="text-3xl font-bold">{getGreeting()}, {user?.user_metadata?.username || "User"}!</h1>
+          <Button variant="outline" onClick={handleSignOut}>
+            <LogOut className="h-4 w-4 mr-2" />
+            Sign Out
+          </Button>
         </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="border-border hover:shadow-lg transition-all duration-200">
-            <CardContent className="p-4 flex items-center space-x-3">
-              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                <Calendar className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">Today's Classes</p>
-                <p className="text-2xl font-bold">3</p>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="border-border hover:shadow-lg transition-all duration-200">
-            <CardContent className="p-4 flex items-center space-x-3">
-              <div className="w-10 h-10 bg-warning/10 rounded-lg flex items-center justify-center">
-                <CheckSquare className="h-5 w-5 text-warning" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">Pending Tasks</p>
-                <p className="text-2xl font-bold">{tasks.filter(t => !t.completed).length}</p>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="border-border hover:shadow-lg transition-all duration-200">
-            <CardContent className="p-4 flex items-center space-x-3">
-              <div className="w-10 h-10 bg-success/10 rounded-lg flex items-center justify-center">
-                <FileText className="h-5 w-5 text-success" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">Notes</p>
-                <p className="text-2xl font-bold">{noteCount}</p> 
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="border-border hover:shadow-lg transition-all duration-200">
-            <CardContent className="p-4 flex items-center space-x-3">
-              <div className="w-10 h-10 bg-destructive/10 rounded-lg flex items-center justify-center">
-                <AlertCircle className="h-5 w-5 text-destructive" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">Due Soon</p>
-                <p className="text-2xl font-bold">{tasks.filter(t => !t.completed && new Date(t.dueDate) <= new Date()).length}</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Main Content Grid */}
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Today's Schedule */}
-          <Card className="lg:col-span-1">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Today's Classes
-              </CardTitle>
-              <Link to="/calendar">
-                <Button variant="ghost" size="sm">View All</Button>
-              </Link>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {upcomingClasses.map((class_, index) => (
-                <div key={index} className="flex items-center space-x-4 p-3 rounded-lg border border-border">
-                  <div className="text-center">
-                    <p className="text-sm font-medium">{class_.time}</p>
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium">{class_.subject}</p>
-                    <p className="text-sm text-muted-foreground">{class_.location}</p>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          {/* Today's Tasks */}
-          <Card className="lg:col-span-1">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <CheckSquare className="h-5 w-5" />
-                Today's Tasks
-              </CardTitle>
-              <Link to="/tasks">
-                <Button variant="ghost" size="sm">
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </Link>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {todaysTasks.map((task) => (
-                <div key={task.id || task.title} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-accent">
-                  <input type="checkbox" className="rounded" checked={task.completed} />
-                  <div className="flex-1">
-                    <p className={`text-sm ${task.priority === "high" ? 'font-medium' : ''}`}>
-                      {task.title}
-                    </p>
-                    {task.priority === "high" && (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-destructive/10 text-destructive">
-                        Urgent
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          {/* Recent Notes from Supabase */}
-          <Card className="lg:col-span-1">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Recent Notes
-              </CardTitle>
-              <Link to="/notes">
-                <Button variant="ghost" size="sm">
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </Link>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {recentNotes.length > 0 ? (
-                recentNotes.map((note) => (
-                  <div
-                    key={note.id}
-                    className="p-3 rounded-lg border border-border hover:bg-accent cursor-pointer transition-colors"
-                  >
-                    <p className="font-medium text-sm">{note.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(new Date(note.created_at), { addSuffix: true })}
-                    </p>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">No notes yet</p>
-                  <p className="text-xs">Start capturing your thoughts! 💭</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Study Tips */}
+        {/* Upcoming Events (includes classes) */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              💡 Study Tips
+              📅 Upcoming Events
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-accent/50">
-                <span className="text-lg">🍅</span>
-                <div>
-                  <p className="text-sm font-medium">Take breaks every 25 minutes</p>
-                  <p className="text-xs text-muted-foreground">Use the Pomodoro technique to maintain focus and prevent burnout</p>
-                </div>
+            {upcomingEvents.length > 0 ? (
+              <div className="space-y-3">
+                {upcomingEvents.map((evt) => (
+                  <div key={evt.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent cursor-pointer transition-colors">
+                    <p className="font-medium text-sm">{evt.title} ({evt.category})</p>
+                    <p className="text-xs text-muted-foreground">{formatDate(evt.date)}</p>
+                  </div>
+                ))}
               </div>
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-accent/50">
-                <span className="text-lg">📚</span>
-                <div>
-                  <p className="text-sm font-medium">Review notes within 24 hours</p>
-                  <p className="text-xs text-muted-foreground">This helps transfer information from short-term to long-term memory</p>
-                </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">No upcoming events</p>
+                <p className="text-xs">Add some to stay organized! 📚</p>
               </div>
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-accent/50">
-                <span className="text-lg">🧠</span>
-                <div>
-                  <p className="text-sm font-medium">Use active recall instead of re-reading</p>
-                  <p className="text-xs text-muted-foreground">Test yourself on what you've learned rather than just reviewing</p>
-                </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Today's Tasks */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              ✅ Today's Tasks
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {todaysTasks.length > 0 ? (
+              <div className="space-y-3">
+                {todaysTasks.map((task) => (
+                  <div key={task.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent cursor-pointer transition-colors">
+                    <p className="font-medium text-sm">{task.title}</p>
+                    <Badge className={task.urgent ? "bg-red-500/10 text-red-600" : "bg-green-500/10 text-green-600"}>
+                      {task.dynamic_priority}
+                    </Badge>
+                  </div>
+                ))}
               </div>
-            </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <CheckSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">No tasks for today</p>
+                <p className="text-xs">You're all caught up! 🎉</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+{/* Recent Notes */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              📝 Recent Notes ({noteCount})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {recentNotes.length > 0 ? (
+              recentNotes.map((note) => (
+                <div key={note.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent cursor-pointer transition-colors">
+                  <p className="font-medium text-sm">{note.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatDistanceToNow(new Date(note.created_at), { addSuffix: true })}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">No notes yet</p>
+                <p className="text-xs">Start capturing your thoughts! 💭</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Calendar as CalendarIcon,
   Plus,
@@ -14,25 +15,17 @@ import {
 import Layout from "@/components/Layout";
 import { supabase } from "@/utils/supabase";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Dialog,
-  DialogTrigger,
-  DialogContent,
-  DialogHeader,
-  DialogFooter,
-  DialogTitle,
-  DialogDescription
-} from "@/components/ui/dialog";
+import { format, addDays, subDays, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay } from "date-fns";
 
 interface CalendarItem {
-  id?: number;
+  id: string;
   title: string;
-  type: string;
-  time?: string;
+  type: "event" | "task";
   location?: string;
-  date: string; // YYYY-MM-DD
+  date: string;  // YYYY-MM-DD
   color?: string;
-  completed?: boolean; // for tasks
+  completed?: boolean;  // for tasks
+  link?: string;  // for events
 }
 
 const Calendar = () => {
@@ -41,398 +34,197 @@ const Calendar = () => {
   const [view, setView] = useState<"month" | "week" | "day">("month");
   const [events, setEvents] = useState<CalendarItem[]>([]);
   const [tasks, setTasks] = useState<CalendarItem[]>([]);
-  const [showModal, setShowModal] = useState(false);
-  const [showAllEvents, setShowAllEvents] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showAllItems, setShowAllItems] = useState(false);
 
-  const [newEvent, setNewEvent] = useState<CalendarItem>({
-    title: "",
-    type: "event",
-    time: "",
-    date: new Date().toISOString().split("T")[0],
-    color: "bg-primary/10 text-primary border-primary/20",
-  });
-
-  // Load events offline-first
   useEffect(() => {
-    const loadEvents = async () => {
-      try {
-        const storedEvents = localStorage.getItem("events_local");
-        const localEvents: CalendarItem[] = storedEvents ? JSON.parse(storedEvents) : [];
-
-        let supabaseEvents: CalendarItem[] = [];
-        try {
-          const { data, error } = await supabase.from("events").select("*");
-          if (!error && data) supabaseEvents = data;
-        } catch {}
-
-        const merged = [...localEvents.filter(e => !e.id), ...supabaseEvents];
-        setEvents(merged);
-
-        for (const e of localEvents.filter(e => !e.id)) {
-          try {
-            const { data, error } = await supabase.from("events").insert([e]).select();
-            if (!error && data?.[0]?.id) {
-              e.id = data[0].id;
-              localStorage.setItem("events_local", JSON.stringify(localEvents));
-            }
-          } catch {}
-        }
-      } catch (error: any) {
-        toast({
-          title: "Error",
-          description: error.message || "Failed to load events",
-          variant: "destructive",
-        });
+    const fetchData = async () => {
+      setIsLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
+        setIsLoading(false);
+        return;
       }
+
+      // Fetch events
+      const { data: eventData, error: eventError } = await supabase
+        .from("events")
+        .select("*")
+        .eq("user_id", user.id);
+
+      if (eventError) {
+        toast({ title: "Error", description: eventError.message, variant: "destructive" });
+      } else {
+        setEvents(eventData.map(e => ({ ...e, type: "event", color: "bg-primary/10 text-primary border-primary/20" })));
+      }
+
+      // Fetch tasks
+      const { data: taskData, error: taskError } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("user_id", user.id);
+
+      if (taskError) {
+        toast({ title: "Error", description: taskError.message, variant: "destructive" });
+      } else {
+        setTasks(taskData.map(t => ({ ...t, type: "task", date: t.due_date, color: "bg-success/10 text-success border-success/20" })));
+      }
+
+      setIsLoading(false);
     };
-    loadEvents();
+
+    fetchData();
   }, [toast]);
 
-  // Load tasks offline-first
-  useEffect(() => {
-    const loadTasks = async () => {
-      try {
-        const storedTasks = localStorage.getItem("tasks_local");
-        const localTasks = storedTasks ? JSON.parse(storedTasks) : [];
+  const allItems = [...events, ...tasks].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-        let supabaseTasks: any[] = [];
-        try {
-          const { data, error } = await supabase.from("tasks").select("*");
-          if (!error && data) supabaseTasks = data;
-        } catch {}
-
-        const mappedLocalTasks = localTasks
-          .filter(t => t.dueDate)
-          .map(t => ({ ...t, date: t.dueDate, type: "task", color: "bg-success/10 text-success border-success/20" }));
-
-        const mappedSupabaseTasks = supabaseTasks
-          .filter(t => t.dueDate)
-          .map(t => ({ ...t, date: t.dueDate, type: "task", color: "bg-success/10 text-success border-success/20" }));
-
-        const merged = [...mappedLocalTasks, ...mappedSupabaseTasks];
-        setTasks(merged);
-
-        for (const t of mappedLocalTasks.filter(t => !t.id)) {
-          try {
-            const { data, error } = await supabase.from("tasks").insert([{
-              title: t.title,
-              dueDate: t.dueDate,
-              completed: t.completed,
-              priority: t.priority
-            }]).select();
-            if (!error && data?.[0]?.id) {
-              t.id = data[0].id;
-              localStorage.setItem("tasks_local", JSON.stringify(localTasks));
-            }
-          } catch {}
-        }
-      } catch (error: any) {
-        toast({
-          title: "Error",
-          description: error.message || "Failed to load tasks",
-          variant: "destructive",
-        });
-      }
-    };
-    loadTasks();
-  }, [toast]);
-
-  const monthNames = [
-    "January","February","March","April","May","June",
-    "July","August","September","October","November","December"
-  ];
-  const weekDays = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-
-  const allItems = [...events, ...tasks].filter(i => i.date);
-
-  const getDaysInMonth = (date: Date) => {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const startingDayOfWeek = firstDay.getDay();
-    const days: (number | null)[] = [];
-    for (let i = 0; i < startingDayOfWeek; i++) days.push(null);
-    for (let day = 1; day <= daysInMonth; day++) days.push(day);
-    return days;
+  const getDaysInMonth = () => {
+    const start = startOfMonth(currentDate);
+    const end = endOfMonth(currentDate);
+    const days = eachDayOfInterval({ start, end });
+    const startWeek = startOfWeek(start);
+    const endWeek = endOfWeek(end);
+    return eachDayOfInterval({ start: startWeek, end: endWeek });
   };
 
-  const getItemsForDate = (day: number) => {
-    const dateString = `${currentDate.getFullYear()}-${String(currentDate.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    return allItems.filter(i => i.date === dateString);
+  const getItemsForDate = (date: Date) => {
+    const dateStr = format(date, "yyyy-MM-dd");
+    return allItems.filter(i => i.date === dateStr);
   };
 
-  const navigateMonth = (direction: "prev" | "next") => {
-    setCurrentDate(prev => {
-      const newDate = new Date(prev);
-      newDate.setMonth(prev.getMonth() + (direction === "next" ? 1 : -1));
-      return newDate;
-    });
-  };
-
-  const isToday = (day: number) => {
-    const today = new Date();
-    return today.getDate() === day &&
-           today.getMonth() === currentDate.getMonth() &&
-           today.getFullYear() === currentDate.getFullYear();
-  };
-
-    // Add new event/task
-  const handleAddEvent = async () => {
-    if (!newEvent.date || !newEvent.title) return;
-    const eventToAdd = { ...newEvent };
-    
-
-    try {
-      const { data, error } = await supabase.from("events").insert([eventToAdd]).select();
-      if (!error && data?.[0]?.id) {
-        eventToAdd.id = data[0].id;
-      }
-    } catch {} // fallback: local-only
-
-    setEvents(prev => [...prev, eventToAdd]);
-
-    const storedEvents = JSON.parse(localStorage.getItem("events_local") || "[]");
-    storedEvents.push(eventToAdd);
-    localStorage.setItem("events_local", JSON.stringify(storedEvents));
-
-    setShowModal(false);
-    setNewEvent({
-      title: "",
-      type: "event",
-      time: "",
-      date: new Date().toISOString().split("T")[0],
-      color: "bg-primary/10 text-primary border-primary/20",
-    });
-  };
-
-  // Toggle completed
   const toggleComplete = async (item: CalendarItem) => {
-    const updated = { ...item, completed: !item.completed };
     if (item.type === "task") {
-      setTasks(prev => prev.map(t => t.id === item.id ? updated : t));
-      const storedTasks: any[] = JSON.parse(localStorage.getItem("tasks_local") || "[]");
-      const idx = storedTasks.findIndex(t => t.id === item.id || (!t.id && t.title === item.title));
-      if (idx >= 0) {
-        storedTasks[idx].completed = updated.completed;
-        localStorage.setItem("tasks_local", JSON.stringify(storedTasks));
+      const updated = { ...item, completed: !item.completed };
+      const { error } = await supabase.from("tasks").update(updated).eq("id", item.id);
+      if (error) {
+        toast({ title: "Error", description: error.message, variant: "destructive" });
+      } else {
+        setTasks(tasks.map(t => t.id === item.id ? updated : t));
       }
-      if (item.id) await supabase.from("tasks").update({ completed: updated.completed }).eq("id", item.id);
-    } else {
-      setEvents(prev => prev.map(e => e.id === item.id ? updated : e));
-      const storedEvents: any[] = JSON.parse(localStorage.getItem("events_local") || "[]");
-      const idx = storedEvents.findIndex(e => e.id === item.id || (!e.id && e.title === item.title));
-      if (idx >= 0) {
-        storedEvents[idx].completed = updated.completed;
-        localStorage.setItem("events_local", JSON.stringify(storedEvents));
-      }
-      if (item.id) await supabase.from("events").update({ completed: updated.completed }).eq("id", item.id);
     }
   };
 
-  // Delete item
   const deleteItem = async (item: CalendarItem) => {
-    if (item.type === "task") {
-      setTasks(prev => prev.filter(t => t.id !== item.id && (!t.id || t.title !== item.title)));
-      const storedTasks = JSON.parse(localStorage.getItem("tasks_local") || "[]")
-        .filter((t: any) => t.id !== item.id && (!t.id || t.title !== item.title));
-      localStorage.setItem("tasks_local", JSON.stringify(storedTasks));
-      if (item.id) await supabase.from("tasks").delete().eq("id", item.id);
+    const table = item.type === "event" ? "events" : "tasks";
+    const { error } = await supabase.from(table).delete().eq("id", item.id);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      setEvents(prev => prev.filter(e => e.id !== item.id && (!e.id || e.title !== item.title)));
-      const storedEvents = JSON.parse(localStorage.getItem("events_local") || "[]")
-        .filter((e: any) => e.id !== item.id && (!e.id || e.title !== item.title));
-      localStorage.setItem("events_local", JSON.stringify(storedEvents));
-      if (item.id) await supabase.from("events").delete().eq("id", item.id);
+      if (item.type === "event") setEvents(events.filter(e => e.id !== item.id));
+      if (item.type === "task") setTasks(tasks.filter(t => t.id !== item.id));
     }
   };
 
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
 
   return (
     <Layout>
       <div className="p-6 space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <CalendarIcon className="h-8 w-8" /> Calendar
-            </h1>
-            <p className="text-muted-foreground">Manage your schedule and important dates</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center bg-muted rounded-lg p-1">
-              <Button variant={view==="month"?"default":"ghost"} size="sm" onClick={()=>setView("month")}>Month</Button>
-              <Button variant={view==="week"?"default":"ghost"} size="sm" onClick={()=>setView("week")}>Week</Button>
-              <Button variant={view==="day"?"default":"ghost"} size="sm" onClick={()=>setView("day")}>Day</Button>
-            </div>
-            <Dialog open={showModal} onOpenChange={setShowModal}>
-              <DialogTrigger asChild>
-                <Button><Plus className="h-4 w-4 mr-2"/> Add Event</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add New Event</DialogTitle>
-                  <DialogDescription>Fill in the event details</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-2">
-                  <input type="text" placeholder="Title" className="input w-full" value={newEvent.title} onChange={e=>setNewEvent({...newEvent,title:e.target.value})}/>
-                  <input type="date" className="input w-full" value={newEvent.date} onChange={e=>setNewEvent({...newEvent,date:e.target.value})}/>
-                  <select className="input w-full" value={newEvent.time} onChange={e=>setNewEvent({...newEvent,time:e.target.value})}>
-                    <option value="">Select Time</option>
-                    {Array.from({length:24*2}).map((_,i)=>{
-                      const hour=Math.floor(i/2); const minute=i%2===0?"00":"30"; const timeStr=`${hour.toString().padStart(2,"0")}:${minute}`;
-                      return <option key={timeStr} value={timeStr}>{timeStr}</option>
-                    })}
-                  </select>
-                  <input type="text" placeholder="Location" className="input w-full" value={newEvent.location} onChange={e=>setNewEvent({...newEvent,location:e.target.value})}/>
-                  <select className="input w-full" value={newEvent.type} onChange={e=>setNewEvent({...newEvent,type:e.target.value})}>
-                    <option value="event">Event</option>
-                    <option value="class">Class</option>
-                    <option value="deadline">Deadline</option>
-                    <option value="study">Study</option>
-                    <option value="task">Task</option>
-                  </select>
-                </div>
-                <DialogFooter>
-                  <Button className="w-full" onClick={()=>{ if(!newEvent.title||!newEvent.date){toast({title:"Missing fields",description:"Title and date are required.",variant:"destructive"}); return;} handleAddEvent(); }}>Add Event</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
+        {/* Navigation */}
+        <div className="flex items-center justify-between">
+          <Button variant="ghost" onClick={() => setCurrentDate(subDays(currentDate, view === "month" ? 30 : 7))}>
+            <ChevronLeft />
+          </Button>
+          <h1 className="text-xl font-bold">{format(currentDate, view === "month" ? "MMMM yyyy" : "MMM d, yyyy")}</h1>
+          <Button variant="ghost" onClick={() => setCurrentDate(addDays(currentDate, view === "month" ? 30 : 7))}>
+            <ChevronRight />
+          </Button>
         </div>
 
-        {/* Calendar Grid */}
-        <div className="grid lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-3">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-xl">{monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}</CardTitle>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={()=>navigateMonth("prev")}><ChevronLeft className="h-4 w-4"/></Button>
-                    <Button variant="outline" size="sm" onClick={()=>setCurrentDate(new Date())}>Today</Button>
-                    <Button variant="outline" size="sm" onClick={()=>navigateMonth("next")}><ChevronRight className="h-4 w-4"/></Button>
+        {/* View Switch */}
+        <div className="flex gap-2">
+          <Button variant={view === "month" ? "default" : "outline"} onClick={() => setView("month")}>Month</Button>
+          <Button variant={view === "week" ? "default" : "outline"} onClick={() => setView("week")}>Week</Button>
+          <Button variant={view === "day" ? "default" : "outline"} onClick={() => setView("day")}>Day</Button>
+        </div>
+
+        {/* Calendar View */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle>Calendar</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {view === "month" && (
+                <div className="grid grid-cols-7 gap-2">
+                  {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(day => (
+                    <div key={day} className="text-center font-medium text-sm">{day}</div>
+                  ))}
+                  {getDaysInMonth().map(day => (
+                    <div key={day.toString()} className={`p-2 border rounded ${isSameDay(day, new Date()) ? "bg-primary/10" : ""}`}>
+                      <div className="text-sm font-medium">{format(day, "d")}</div>
+                      <div className="space-y-1 mt-1">
+                        {getItemsForDate(day).slice(0, 2).map(i => (
+                          <div key={i.id} className={`text-xs p-1 rounded ${i.color}`}>{i.title}</div>
+                        ))}
+                        {getItemsForDate(day).length > 2 && <div className="text-xs">+{getItemsForDate(day).length - 2} more</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {view === "week" && (
+                <div className="space-y-2">
+                  {eachDayOfInterval({ start: startOfWeek(currentDate), end: endOfWeek(currentDate) }).map(day => (
+                    <div key={day.toString()} className="p-2 border rounded">
+                      <div className="font-medium">{format(day, "EEE d")}</div>
+                      <div className="space-y-1 mt-1">
+                        {getItemsForDate(day).map(i => (
+                          <div key={i.id} className={`text-sm p-1 rounded ${i.color}`}>{i.title}</div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {view === "day" && (
+                <div className="space-y-2">
+                  <div className="text-center text-lg font-medium mb-2">
+                    {format(currentDate, "MMMM d, yyyy")}
+                  </div>
+                  <div className="space-y-1">
+                    {getItemsForDate(currentDate).map(i => (
+                      <div key={i.id} className={`p-2 border rounded ${i.color}`}>
+                        <div className="font-medium">{i.title}</div>
+                        {i.location && <div className="text-xs text-muted-foreground">{i.location}</div>}
+                        <Badge>{i.type}</Badge>
+                      </div>
+                    ))}
+                    {getItemsForDate(currentDate).length === 0 && (
+                      <div className="text-sm text-muted-foreground text-center">No items</div>
+                    )}
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent>
-                {view==="month" && (
-                  <>
-                    <div className="grid grid-cols-7 gap-1 mb-4">
-                      {weekDays.map(day=><div key={day} className="p-2 text-center text-sm font-medium text-muted-foreground">{day}</div>)}
-                    </div>
-                    <div className="grid grid-cols-7 gap-1">
-                      {getDaysInMonth(currentDate).map((day,index)=>(
-                        <div key={index} className={`min-h-[80px] p-1 border border-border rounded-lg ${day?'hover:bg-accent cursor-pointer':''} ${isToday(day||0)?'bg-primary/5 border-primary':''}`}>
-                          {day && (
-                            <>
-                              <div className={`text-sm font-medium mb-1 ${isToday(day)?'text-primary':''}`}>{day}</div>
-                              <div className="space-y-1">
-                                {getItemsForDate(day).slice(0,2).map(i=>(
-                                  <div key={i.id||i.title} className={`relative text-xs p-1 rounded border flex justify-between items-center ${i.color || 'bg-secondary/10 text-secondary border-secondary/20'} truncate`}>
-                                    <span className={`${i.completed?"line-through text-gray-400":""}`}>{i.title}</span>
-                                    <div className="flex items-center gap-1">
-                                      <input type="checkbox" checked={i.completed||false} onChange={()=>toggleComplete(i)} className="h-3 w-3"/>
-                                      <Trash2 className="h-3 w-3 cursor-pointer" onClick={()=>deleteItem(i)}/>
-                                    </div>
-                                    {i.completed && <span className="absolute top-0 right-0 text-red-500 font-bold text-xs pointer-events-none">×</span>}
-                                  </div>
-                                ))}
-                                {getItemsForDate(day).length>2 && <div className="text-xs text-muted-foreground">+{getItemsForDate(day).length-2} more</div>}
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-                {/* Week & Day views remain unchanged but you can replicate the same checkbox + delete + overlay lo  gic */}
-                 {view === "week" && (
-                  <>
-                    {/* Weekday labels */}
-                    <div className="grid grid-cols-7 gap-1 mb-2">
-                      {weekDays.map(day => (
-                        <div key={day} className="p-2 text-center text-sm font-medium text-muted-foreground">{day}</div>
-                      ))}
-                    </div>
-                    {/* Week days grid */}
-                    <div className="grid grid-cols-7 gap-1">
-                      {Array.from({ length: 7 }).map((_, i) => {
-                        const d = new Date(currentDate);
-                        d.setDate(currentDate.getDate() - currentDate.getDay() + i); // current week
-                        const dateString = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-                        const items = allItems.filter(e => e.date === dateString);
-                        return (
-                          <div key={i} className={`min-h-[80px] p-1 border border-border rounded-lg ${isToday(d.getDate()) ? 'bg-primary/5 border-primary' : ''}`}>
-                            <div className="text-sm font-medium mb-1 text-center">{d.getDate()}</div>
-                            <div className="space-y-1">
-                              {items.map(i => (
-                                <div key={i.id || i.title} className={`text-xs p-1 rounded border ${i.color || 'bg-secondary/10 text-secondary border-secondary/20'} truncate`}>
-                                  {i.title}
-                                </div>
-                              ))}
-                              {items.length > 2 && <div className="text-xs text-muted-foreground">+{items.length-2} more</div>}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
+              )}
+            </CardContent>
+          </Card>
 
-
-                {view === "day" && (
-                  <div className="space-y-2">
-                    {/* Date header */}
-                    <div className="text-center text-lg font-medium mb-2">
-                      {currentDate.toDateString()}
-                    </div>
-                    {/* Events for the day */}
-                    <div className="space-y-1">
-                      {allItems.filter(i => i.date === currentDate.toISOString().split("T")[0])
-                        .map(i => (
-                          <div key={i.id || i.title} className={`p-2 border rounded ${i.color || 'bg-secondary/10 text-secondary border-secondary/20'}`}>
-                            <div className="font-medium">{i.title}</div>
-                            {i.time && <div className="text-xs text-muted-foreground">{i.time}</div>}
-                            {i.location && <div className="text-xs text-muted-foreground">{i.location}</div>}
-                            <Badge variant="secondary" className={i.color || "bg-secondary/10 text-secondary border-secondary/20"}>{i.type}</Badge>
-                          </div>
-                      ))}
-                      {allItems.filter(i => i.date === currentDate.toISOString().split("T")[0]).length === 0 && (
-                        <div className="text-sm text-muted-foreground text-center">No events or tasks</div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Upcoming Events & Tasks Sidebar */}
+          {/* Upcoming Items Sidebar */}
           <div className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Upcoming Items</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {(showAllEvents?allItems:allItems.slice(0,4)).map(i=>(
-                  <div key={i.id||i.title} className="space-y-2 p-3 rounded-lg border border-border flex justify-between items-center">
+                {(showAllItems ? allItems : allItems.slice(0, 4)).map(i => (
+                  <div key={i.id} className="space-y-2 p-3 rounded-lg border border-border flex justify-between items-center">
                     <div>
                       <h4 className="font-medium text-sm">{i.title}</h4>
-                      {i.time && <div className="flex items-center gap-2 text-xs text-muted-foreground"><Clock className="h-3 w-3"/> {i.time}</div>}
-                      {i.location && <div className="flex items-center gap-2 text-xs text-muted-foreground"><MapPin className="h-3 w-3"/> {i.location}</div>}
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground"><CalendarIcon className="h-3 w-3"/> {new Date(i.date).toLocaleDateString()}</div>
-                      <Badge variant="secondary" className={i.color || "bg-secondary/10 text-secondary border-secondary/20"}>{i.type}</Badge>
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <CalendarIcon className="h-3 w-3" /> {format(new Date(i.date), "MMM d")}
+                      </div>
+                      <Badge className={i.color}>{i.type}</Badge>
                     </div>
                     <div className="flex items-center gap-1">
-                      <input type="checkbox" checked={i.completed||false} onChange={()=>toggleComplete(i)} className="h-4 w-4"/>
-                      <Trash2 className="h-4 w-4 cursor-pointer" onClick={()=>deleteItem(i)}/>
+                      {i.type === "task" && <Checkbox checked={i.completed} onCheckedChange={() => toggleComplete(i)} />}
+                      <Trash2 className="h-4 w-4 cursor-pointer" onClick={() => deleteItem(i)} />
                     </div>
                   </div>
                 ))}
-                {allItems.length>4 && <Button variant="link" size="sm" onClick={()=>setShowAllEvents(!showAllEvents)}>{showAllEvents?"Collapse":"Show All"}</Button>}
+                {allItems.length > 4 && <Button variant="link" size="sm" onClick={() => setShowAllItems(!showAllItems)}>{showAllItems ? "Collapse" : "Show All"}</Button>}
               </CardContent>
             </Card>
           </div>
