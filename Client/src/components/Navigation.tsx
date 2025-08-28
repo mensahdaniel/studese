@@ -19,6 +19,7 @@ const Navigation = () => {
   const navItems = [
     { name: "Dashboard", path: "/dashboard", icon: Home },
     { name: "Notes", path: "/notes", icon: FileText },
+    { name: "Events", path: "/events", icon: BookOpen },
     { name: "Calendar", path: "/calendar", icon: Calendar },
     { name: "Reminders", path: "/tasks", icon: Bell },
     { name: "Settings", path: "/settings", icon: Settings },

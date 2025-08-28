@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus,Search, FileText, Pin, Trash2, Filter, Edit } from "lucide-react";
+import { Plus, Search, FileText, Pin, Trash2, Filter, Edit } from "lucide-react";
 import Layout from "@/components/Layout";
 import { supabase } from "@/utils/supabase";
 import { useToast } from "@/hooks/use-toast";
@@ -24,12 +24,15 @@ const Notes = () => {
   const [notes, setNotes] = useState<Note[]>([]);
   const [user, setUser] = useState<any>(null);
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true); // Added loading state
 
   useEffect(() => {
     const fetchUserAndNotes = async () => {
+      setIsLoading(true); // Set loading to true at the start of fetch
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user) {
         toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
+        setIsLoading(false); // Stop loading if authentication fails
         return;
       }
       setUser(user);
@@ -45,6 +48,7 @@ const Notes = () => {
       } else {
         setNotes(data || []);
       }
+      setIsLoading(false); // Set loading to false after data is fetched
     };
     fetchUserAndNotes();
   }, [toast]);
@@ -101,6 +105,8 @@ const Notes = () => {
         return "bg-muted text-muted-foreground";
     }
   };
+
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>; // Loading screen
 
   return (
     <Layout>

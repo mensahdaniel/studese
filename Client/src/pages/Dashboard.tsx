@@ -160,6 +160,14 @@ const Dashboard = () => {
                 <p className="text-xs">Add some to stay organized! 📚</p>
               </div>
             )}
+            <div className="mt-4 text-right">
+              <Button variant="outline" asChild>
+                <Link to="/events">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Event
+                </Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
@@ -191,7 +199,8 @@ const Dashboard = () => {
             )}
           </CardContent>
         </Card>
-{/* Recent Notes */}
+
+        {/* Recent Notes */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

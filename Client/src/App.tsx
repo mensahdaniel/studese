@@ -31,7 +31,9 @@ const App = () => {
     });
 
     // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setIsLoading(false);
     });
@@ -56,13 +58,10 @@ const App = () => {
         <BrowserRouter>
           <Routes>
             <Route
-  path="/notes/:id"
-  element={session ? <NoteEditor /> : <Navigate to="/login" />}
-/>
-            <Route
-              path="/"
-              element={session ? <Dashboard /> : <Landing />}
+              path="/notes/:id"
+              element={session ? <NoteEditor /> : <Navigate to="/login" />}
             />
+            <Route path="/" element={session ? <Dashboard /> : <Landing />} />
             <Route path="/login" element={<Login />} />
             <Route
               path="/dashboard"

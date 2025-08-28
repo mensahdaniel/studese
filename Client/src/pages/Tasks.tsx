@@ -103,13 +103,22 @@ const Tasks = () => {
       return;
     }
 
-    const updatedTask = { ...task, completed: !task.completed };
-    const { error } = await supabase.from("tasks").update(updatedTask).eq("id", task.id);
+    const updatedTask = { completed: !task.completed };
+    const { data, error } = await supabase
+      .from("tasks")
+      .update(updatedTask)
+      .eq("id", task.id)
+      .select();
+
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      setTasks(tasks.map(t => t.id === task.id ? { ...t, completed: updatedTask.completed, dynamic_priority: calculateDynamicPriority(t.due_date) } : t));
+      console.error("Update error:", error);
+    } else if (data && data.length > 0) {
+      const updatedData = { ...task, completed: data[0].completed, dynamic_priority: calculateDynamicPriority(task.due_date) };
+      setTasks(tasks.map(t => t.id === task.id ? updatedData : t));
       toast({ title: "Success", description: `Task marked as ${updatedTask.completed ? "completed" : "incomplete"}!` });
+    } else {
+      toast({ title: "Error", description: "Failed to update task.", variant: "destructive" });
     }
   };
 
@@ -161,6 +170,45 @@ const Tasks = () => {
   return (
     <Layout>
       <div className="p-6 space-y-6">
+        {/* Tasks Overview Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-primary">
+                {tasks.filter(t => !t.completed).length}
+              </div>
+              <p className="text-sm text-muted-foreground">Pending Tasks</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-success">
+                {tasks.filter(t => t.completed).length}
+              </div>
+              <p className="text-sm text-muted-foreground">Completed</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-destructive">
+                {tasks.filter(t => t.priority === "high" && !t.completed).length}
+              </div>
+              <p className="text-sm text-muted-foreground">High Priority</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-warning">
+                {tasks.filter(t => new Date(t.due_date) < new Date() && !t.completed).length}
+              </div>
+              <p className="text-sm text-muted-foreground">Overdue</p>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Search */}
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
