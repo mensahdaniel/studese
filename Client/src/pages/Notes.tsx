@@ -15,7 +15,7 @@ type Note = {
   category: string;
   date: string;
   pinned: boolean;
-  content: string; // base64 preview
+  content: string; // plain text for normal notes
 };
 
 const Notes = () => {
@@ -24,15 +24,20 @@ const Notes = () => {
   const [notes, setNotes] = useState<Note[]>([]);
   const [user, setUser] = useState<any>(null);
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(true); // Added loading state
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Normal note form
+  const [showNormalNoteForm, setShowNormalNoteForm] = useState(false);
+  const [newNoteTitle, setNewNoteTitle] = useState("");
+  const [newNoteContent, setNewNoteContent] = useState("");
 
   useEffect(() => {
     const fetchUserAndNotes = async () => {
-      setIsLoading(true); // Set loading to true at the start of fetch
+      setIsLoading(true);
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user) {
         toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
-        setIsLoading(false); // Stop loading if authentication fails
+        setIsLoading(false);
         return;
       }
       setUser(user);
@@ -48,10 +53,40 @@ const Notes = () => {
       } else {
         setNotes(data || []);
       }
-      setIsLoading(false); // Set loading to false after data is fetched
+      setIsLoading(false);
     };
     fetchUserAndNotes();
   }, [toast]);
+
+  // CRUD handlers
+  const handleCreateNormalNote = async () => {
+    if (!newNoteTitle.trim() || !newNoteContent.trim()) {
+      toast({ title: "Error", description: "Title and content required.", variant: "destructive" });
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("notes")
+      .insert({
+        user_id: user.id,
+        title: newNoteTitle,
+        content: newNoteContent,
+        pinned: false,
+        category: "personal",
+        date: new Date().toISOString(),
+      })
+      .select();
+
+    if (error) {
+      toast({ title: "Error", description: "Failed to create note.", variant: "destructive" });
+    } else {
+      setNotes([data[0], ...notes]);
+      setNewNoteTitle("");
+      setNewNoteContent("");
+      setShowNormalNoteForm(false);
+      toast({ title: "Success", description: "Note created." });
+    }
+  };
 
   const handleDeleteNote = async (id: string) => {
     const { error } = await supabase.from("notes").delete().eq("id", id);
@@ -74,6 +109,7 @@ const Notes = () => {
     }
   };
 
+  // Filters
   const categories = [
     { id: "all", name: "All Notes", count: notes.length },
     { id: "academic", name: "Academic", count: notes.filter((n) => n.category === "academic").length },
@@ -93,20 +129,15 @@ const Notes = () => {
 
   const getCategoryColor = (category: string) => {
     switch (category) {
-      case "academic":
-        return "bg-primary/10 text-primary";
-      case "study":
-        return "bg-success/10 text-success";
-      case "research":
-        return "bg-warning/10 text-warning";
-      case "personal":
-        return "bg-muted text-muted-foreground";
-      default:
-        return "bg-muted text-muted-foreground";
+      case "academic": return "bg-primary/10 text-primary";
+      case "study": return "bg-success/10 text-success";
+      case "research": return "bg-warning/10 text-warning";
+      case "personal": return "bg-muted text-muted-foreground";
+      default: return "bg-muted text-muted-foreground";
     }
   };
 
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>; // Loading screen
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
 
   return (
     <Layout>
@@ -120,13 +151,37 @@ const Notes = () => {
             </h1>
             <p className="text-muted-foreground">Capture and organize your thoughts</p>
           </div>
-          <Link to="/notes/new">
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              New Note
+          <div className="flex gap-2">
+            <Button onClick={() => setShowNormalNoteForm(!showNormalNoteForm)}>
+              <Plus className="h-4 w-4 mr-2" /> New Note
             </Button>
-          </Link>
+            <Link to="/notes/new?mode=whiteboard">
+              <Button variant="outline">Whiteboard Mode</Button>
+            </Link>
+          </div>
         </div>
+
+        {/* Normal Note Form */}
+        {showNormalNoteForm && (
+          <Card className="mb-4 p-4 border rounded">
+            <Input
+              placeholder="Title"
+              value={newNoteTitle}
+              onChange={(e) => setNewNoteTitle(e.target.value)}
+              className="mb-2"
+            />
+            <textarea
+              placeholder="Write your note here..."
+              value={newNoteContent}
+              onChange={(e) => setNewNoteContent(e.target.value)}
+              className="w-full h-32 p-2 border rounded mb-2"
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowNormalNoteForm(false)}>Cancel</Button>
+              <Button onClick={handleCreateNormalNote}>Save Note</Button>
+            </div>
+          </Card>
+        )}
 
         {/* Search and Filters */}
         <div className="flex flex-col sm:flex-row gap-4">
@@ -183,7 +238,6 @@ const Notes = () => {
                     </div>
                   </CardHeader>
                   <CardContent className="pt-0">
-                    <img src={note.content} alt="Note preview" className="w-full h-auto rounded-md mb-4" />
                     <div className="flex items-center gap-2">
                       <Link to={`/notes/${note.id}`}>
                         <Button variant="ghost" size="sm">
@@ -220,7 +274,6 @@ const Notes = () => {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <img src={note.content} alt="Note preview" className="w-full h-auto rounded-md mb-4" />
                   <div className="flex items-center gap-2">
                     <Link to={`/notes/${note.id}`}>
                       <Button variant="ghost" size="sm">
@@ -249,12 +302,6 @@ const Notes = () => {
               <p className="text-muted-foreground mb-4">
                 {searchTerm ? "Try adjusting your search terms" : "Create your first note to get started"}
               </p>
-              <Link to="/notes/new">
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Note
-                </Button>
-              </Link>
             </CardContent>
           </Card>
         )}
