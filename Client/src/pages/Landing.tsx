@@ -222,7 +222,7 @@ const Landing = () => {
               </Card>
             </div>
             <div className="text-center text-sm text-muted-foreground">
-              <p>&copy; 2024 StudEse. All rights reserved.</p>
+              <p>&copy; 2025 StudEse. All rights reserved.</p>
             </div>
           </div>
         </div>
