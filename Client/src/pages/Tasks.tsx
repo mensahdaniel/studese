@@ -285,7 +285,7 @@ const Tasks = () => {
                       onCheckedChange={() => handleToggleCompleted(task)}
                     />
                     <div className="flex-1 space-y-2">
-                      <div className="flex items-start justify-between">
+                      <div className="flex items-start justify-between gap-4">
                         <h3 className={`font-medium ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
                           {task.title}
                         </h3>
