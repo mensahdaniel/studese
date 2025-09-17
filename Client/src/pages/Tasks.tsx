@@ -170,6 +170,13 @@ const Tasks = () => {
   return (
     <Layout>
       <div className="p-6 space-y-6">
+        {/* Page Title and Badge */}
+        <div className="flex items-center gap-4">
+          <h1 className="text-3xl font-bold tracking-tight">Task Reminders</h1>
+          <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
+            Demo Version
+          </Badge>
+        </div>
         {/* Tasks Overview Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card>
