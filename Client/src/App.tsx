@@ -12,6 +12,7 @@ import Calendar from "./pages/Calendar";
 import Notes from "./pages/Notes";
 import Tasks from "./pages/Tasks";
 import Events from "./pages/Events";
+import StudyWellness from "@/pages/StudyWellness";
 import Resources from "./pages/Resources";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -75,6 +76,10 @@ const App = () => {
             <Route
               path="/notes"
               element={session ? <Notes /> : <Navigate to="/login" />}
+            />
+            <Route
+              path="/study-wellness"
+              element={session ? <StudyWellness /> : <Navigate to="/login" />}
             />
             <Route
               path="/tasks"

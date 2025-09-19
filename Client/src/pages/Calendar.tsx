@@ -138,6 +138,11 @@ const Calendar = () => {
           <Button variant={view === "week" ? "default" : "outline"} onClick={() => setView("week")}>Week</Button>
           <Button variant={view === "day" ? "default" : "outline"} onClick={() => setView("day")}>Day</Button>
         </div>
+       {/* Add Task Button */}
+       <Button onClick={() => window.location.href = '/tasks'}>
+         <Plus className="h-4 w-4 mr-2" />
+         Add Task
+       </Button>
 
         {/* Calendar View */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

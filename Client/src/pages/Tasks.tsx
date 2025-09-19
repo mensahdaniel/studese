@@ -24,7 +24,8 @@ const Tasks = () => {
     description: "",
     category: "personal",
     priority: "medium",
-    due_date: ""
+    due_date: "",
+    due_time: ""
   });
 
   useEffect(() => {
@@ -78,9 +79,18 @@ const Tasks = () => {
       toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
       return;
     }
+    
+    // Combine date and time into a single ISO string for the database
+    const dueDateTime = newTask.due_time 
+      ? `${newTask.due_date}T${newTask.due_time}` 
+      : newTask.due_date;
 
     const taskToAdd = {
-      ...newTask,
+      title: newTask.title,
+      description: newTask.description,
+      category: newTask.category,
+      priority: newTask.priority,
+      due_date: dueDateTime, // Use the combined datetime here
       user_id: user.id,
       completed: false
     };
@@ -266,6 +276,12 @@ const Tasks = () => {
                 value={newTask.due_date}
                 onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
               />
+		<Input
+ 		 type="time"
+  		value={newTask.due_time || ''}
+  		onChange={(e) => setNewTask({ ...newTask, due_time: e.target.value })}
+  		className="mt-2"
+		/>
               <Button onClick={handleAddTask}>Save Task</Button>
             </CardContent>
           </Card>
