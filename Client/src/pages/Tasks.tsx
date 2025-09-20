@@ -24,7 +24,8 @@ const Tasks = () => {
     description: "",
     category: "personal",
     priority: "medium",
-    due_date: ""
+    due_date: "",
+    due_time: ""
   });
 
   useEffect(() => {
@@ -78,9 +79,18 @@ const Tasks = () => {
       toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
       return;
     }
+    
+    // Combine date and time into a single ISO string for the database
+    const dueDateTime = newTask.due_time 
+      ? `${newTask.due_date}T${newTask.due_time}` 
+      : newTask.due_date;
 
     const taskToAdd = {
-      ...newTask,
+      title: newTask.title,
+      description: newTask.description,
+      category: newTask.category,
+      priority: newTask.priority,
+      due_date: dueDateTime, // Use the combined datetime here
       user_id: user.id,
       completed: false
     };
@@ -170,6 +180,13 @@ const Tasks = () => {
   return (
     <Layout>
       <div className="p-6 space-y-6">
+        {/* Page Title and Badge */}
+        <div className="flex items-center gap-4">
+          <h1 className="text-3xl font-bold tracking-tight">Task Reminders</h1>
+          <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
+            Demo Version
+          </Badge>
+        </div>
         {/* Tasks Overview Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card>
@@ -259,6 +276,12 @@ const Tasks = () => {
                 value={newTask.due_date}
                 onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
               />
+		<Input
+ 		 type="time"
+  		value={newTask.due_time || ''}
+  		onChange={(e) => setNewTask({ ...newTask, due_time: e.target.value })}
+  		className="mt-2"
+		/>
               <Button onClick={handleAddTask}>Save Task</Button>
             </CardContent>
           </Card>
@@ -278,7 +301,7 @@ const Tasks = () => {
                       onCheckedChange={() => handleToggleCompleted(task)}
                     />
                     <div className="flex-1 space-y-2">
-                      <div className="flex items-start justify-between">
+                      <div className="flex items-start justify-between gap-4">
                         <h3 className={`font-medium ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
                           {task.title}
                         </h3>

@@ -47,16 +47,48 @@ const Calendar = () => {
         return;
       }
 
-      // Fetch events
-      const { data: eventData, error: eventError } = await supabase
-        .from("events")
-        .select("*")
-        .eq("user_id", user.id);
+      // Fetch events from external API
+      try {
+        // TODO: Get user's actual location instead of hardcoded values
+        const lat = 49.78542855061154;
+        const lng = -97.1999175474503781;
+        const page = 1;
+        
+        const response = await fetch(
+          `https://nlgrnddx13.execute-api.us-east-1.amazonaws.com/prod/event/list?lat=${lat}&lng=${lng}&page=${page}`,
+          {
+            method: 'GET',
+            headers: {
+              'x-api-key': 'QLQFG0LMMpsaNyR65rDT3sArD4Bdyaq3RsHHdmEd'
+            }
+          }
+        );
 
-      if (eventError) {
-        toast({ title: "Error", description: eventError.message, variant: "destructive" });
-      } else {
-        setEvents(eventData.map(e => ({ ...e, type: "event", color: "bg-primary/10 text-primary border-primary/20" })));
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
+
+        const eventData = await response.json();
+        
+        // Transform API response to match our CalendarItem format
+        const formattedEvents = eventData.map((event: any) => ({
+          id: event.id || event.event_id,
+          title: event.title || event.name,
+          type: "event" as const,
+          location: event.location,
+          date: event.date || event.start_time,
+          color: "bg-primary/10 text-primary border-primary/20",
+          link: event.link
+        }));
+
+        setEvents(formattedEvents);
+      } catch (error) {
+        toast({ 
+          title: "Error", 
+          description: "Failed to fetch events from external API.", 
+          variant: "destructive" 
+        });
+        console.error('API fetch error:', error);
       }
 
       // Fetch tasks
@@ -138,6 +170,11 @@ const Calendar = () => {
           <Button variant={view === "week" ? "default" : "outline"} onClick={() => setView("week")}>Week</Button>
           <Button variant={view === "day" ? "default" : "outline"} onClick={() => setView("day")}>Day</Button>
         </div>
+        {/* Add Task Button */}
+        <Button onClick={() => window.location.href = '/tasks'}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Task
+        </Button>
 
         {/* Calendar View */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

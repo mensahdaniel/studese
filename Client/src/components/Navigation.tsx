@@ -1,10 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
-import { 
-  Home, 
-  Calendar, 
-  FileText, 
-  CheckSquare, 
-  MapPin, 
+import {
+  Home,
+  Calendar,
+  FileText,
+  CheckSquare,
+  MapPin,
+  Heart,
   BookOpen,
   Bell,
   Settings,
@@ -15,13 +16,14 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 const Navigation = () => {
   const location = useLocation();
-  
+
   const navItems = [
     { name: "Dashboard", path: "/dashboard", icon: Home },
     { name: "Notes", path: "/notes", icon: FileText },
     { name: "Events", path: "/events", icon: BookOpen },
     { name: "Calendar", path: "/calendar", icon: Calendar },
     { name: "Reminders", path: "/tasks", icon: Bell },
+    { name: "Study & Wellness", path: "/study-wellness", icon: Heart },
     { name: "Settings", path: "/settings", icon: Settings },
   ];
 
