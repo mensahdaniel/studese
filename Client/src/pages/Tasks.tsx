@@ -9,6 +9,7 @@ import Layout from "@/components/Layout";
 import { supabase } from "@/utils/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow, isBefore, subDays } from "date-fns";
+import { formatInTimeZone } from 'date-fns-tz'; // ← ADDED TIMEZONE IMPORT
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const Tasks = () => {
@@ -103,7 +104,7 @@ const Tasks = () => {
       setTasks([addedTask, ...tasks]);
       toast({ title: "Success", description: "Task added!" });
       setShowForm(false);
-      setNewTask({ title: "", description: "", category: "personal", priority: "medium", due_date: "" });
+      setNewTask({ title: "", description: "", category: "personal", priority: "medium", due_date: "", due_time: "" });
     }
   };
 
@@ -166,8 +167,15 @@ const Tasks = () => {
     }
   };
 
+  // FIXED: Timezone-aware date display
   const getDaysUntilDue = (dueDate: string) => {
-    return formatDistanceToNow(new Date(dueDate), { addSuffix: true });
+    try {
+      // Convert to CDT timezone (America/Chicago) before calculating
+      const cdtDate = formatInTimeZone(new Date(dueDate), 'America/Chicago', 'yyyy-MM-dd HH:mm:ss');
+      return formatDistanceToNow(new Date(cdtDate), { addSuffix: true });
+    } catch (error) {
+      return formatDistanceToNow(new Date(dueDate), { addSuffix: true });
+    }
   };
 
   const filteredTasks = tasks.filter(task => {
@@ -276,12 +284,12 @@ const Tasks = () => {
                 value={newTask.due_date}
                 onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
               />
-		<Input
- 		 type="time"
-  		value={newTask.due_time || ''}
-  		onChange={(e) => setNewTask({ ...newTask, due_time: e.target.value })}
-  		className="mt-2"
-		/>
+              <Input
+                type="time"
+                value={newTask.due_time || ''}
+                onChange={(e) => setNewTask({ ...newTask, due_time: e.target.value })}
+                className="mt-2"
+              />
               <Button onClick={handleAddTask}>Save Task</Button>
             </CardContent>
           </Card>
@@ -343,7 +351,7 @@ const Tasks = () => {
               <CheckSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">No tasks found</h3>
               <p className="text-muted-foreground mb-4">
-                {searchTerm ? "Try adjusting your search terms" : "Add your first task to get started"}
+                {searchTerm ? "Try adjusting your search terms" : "This is your personal to-do list. Add a task to organize your study sessions!"}
               </p>
             </CardContent>
           </Card>
