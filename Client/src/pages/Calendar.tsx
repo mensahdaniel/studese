@@ -10,22 +10,24 @@ import {
   ChevronRight,
   Clock,
   MapPin,
-  Trash2
+  Trash2,
+  ExternalLink
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { supabase } from "@/utils/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { format, addDays, subDays, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay } from "date-fns";
+import { formatInTimeZone } from 'date-fns-tz';
 
 interface CalendarItem {
   id: string;
   title: string;
   type: "event" | "task";
   location?: string;
-  date: string;  // YYYY-MM-DD
+  date: string;
   color?: string;
-  completed?: boolean;  // for tasks
-  link?: string;  // for events
+  completed?: boolean;
+  link?: string;
 }
 
 const Calendar = () => {
@@ -36,6 +38,21 @@ const Calendar = () => {
   const [tasks, setTasks] = useState<CalendarItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showAllItems, setShowAllItems] = useState(false);
+
+  // Safe date formatting function
+  const safeFormatDate = (dateString: string, formatStr: string = 'MMM d') => {
+    try {
+      const date = new Date(dateString);
+      return isNaN(date.getTime()) ? 'Date TBA' : format(date, formatStr);
+    } catch (error) {
+      return 'Date TBA';
+    }
+  };
+
+  // Open event in Hypafy
+  const openEventPage = (eventId: string) => {
+    window.open(`https://www.events.hypafy.com/events/${eventId}`, '_blank');
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -49,7 +66,6 @@ const Calendar = () => {
 
       // Fetch events from external API
       try {
-        // TODO: Get user's actual location instead of hardcoded values
         const lat = 49.78542855061154;
         const lng = -97.1999175474503781;
         const page = 1;
@@ -64,19 +80,22 @@ const Calendar = () => {
           }
         );
 
+        console.log('API Status:', response.status);
+        const responseData = await response.json();
+        console.log('API Data:', responseData);
+
         if (!response.ok) {
           throw new Error(`API error: ${response.status}`);
         }
 
-        const eventData = await response.json();
-        
-        // Transform API response to match our CalendarItem format
-        const formattedEvents = eventData.map((event: any) => ({
-          id: event.id || event.event_id,
-          title: event.title || event.name,
+        // Handle API response structure
+        const eventsArray = responseData.events || [];
+        const formattedEvents = eventsArray.map((event: any) => ({
+          id: event.id, // Use the actual event ID from API
+          title: event.title,
           type: "event" as const,
-          location: event.location,
-          date: event.date || event.start_time,
+          location: event.location?.address,
+          date: event.localStart || event.date,
           color: "bg-primary/10 text-primary border-primary/20",
           link: event.link
         }));
@@ -170,6 +189,7 @@ const Calendar = () => {
           <Button variant={view === "week" ? "default" : "outline"} onClick={() => setView("week")}>Week</Button>
           <Button variant={view === "day" ? "default" : "outline"} onClick={() => setView("day")}>Day</Button>
         </div>
+        
         {/* Add Task Button */}
         <Button onClick={() => window.location.href = '/tasks'}>
           <Plus className="h-4 w-4 mr-2" />
@@ -193,7 +213,13 @@ const Calendar = () => {
                       <div className="text-sm font-medium">{format(day, "d")}</div>
                       <div className="space-y-1 mt-1">
                         {getItemsForDate(day).slice(0, 2).map(i => (
-                          <div key={i.id} className={`text-xs p-1 rounded ${i.color}`}>{i.title}</div>
+                          <div 
+                            key={i.id} 
+                            className={`text-xs p-1 rounded ${i.color} cursor-pointer hover:opacity-80 transition-opacity`}
+                            onClick={() => i.type === "event" && openEventPage(i.id)}
+                          >
+                            {i.title}
+                          </div>
                         ))}
                         {getItemsForDate(day).length > 2 && <div className="text-xs">+{getItemsForDate(day).length - 2} more</div>}
                       </div>
@@ -209,7 +235,13 @@ const Calendar = () => {
                       <div className="font-medium">{format(day, "EEE d")}</div>
                       <div className="space-y-1 mt-1">
                         {getItemsForDate(day).map(i => (
-                          <div key={i.id} className={`text-sm p-1 rounded ${i.color}`}>{i.title}</div>
+                          <div 
+                            key={i.id} 
+                            className={`text-sm p-1 rounded ${i.color} cursor-pointer hover:opacity-80 transition-opacity`}
+                            onClick={() => i.type === "event" && openEventPage(i.id)}
+                          >
+                            {i.title}
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -224,7 +256,11 @@ const Calendar = () => {
                   </div>
                   <div className="space-y-1">
                     {getItemsForDate(currentDate).map(i => (
-                      <div key={i.id} className={`p-2 border rounded ${i.color}`}>
+                      <div 
+                        key={i.id} 
+                        className={`p-2 border rounded ${i.color} cursor-pointer hover:opacity-80 transition-opacity`}
+                        onClick={() => i.type === "event" && openEventPage(i.id)}
+                      >
                         <div className="font-medium">{i.title}</div>
                         {i.location && <div className="text-xs text-muted-foreground">{i.location}</div>}
                         <Badge>{i.type}</Badge>
@@ -248,16 +284,28 @@ const Calendar = () => {
               <CardContent className="space-y-4">
                 {(showAllItems ? allItems : allItems.slice(0, 4)).map(i => (
                   <div key={i.id} className="space-y-2 p-3 rounded-lg border border-border flex justify-between items-center">
-                    <div>
-                      <h4 className="font-medium text-sm">{i.title}</h4>
+                    <div className="flex-1">
+                      <h4 
+                        className={`font-medium text-sm cursor-pointer hover:underline ${i.type === "event" ? "text-blue-600" : ""}`}
+                        onClick={() => i.type === "event" && openEventPage(i.id)}
+                      >
+                        {i.title}
+                      </h4>
                       <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <CalendarIcon className="h-3 w-3" /> {format(new Date(i.date), "MMM d")}
+                        <CalendarIcon className="h-3 w-3" />
+                        {safeFormatDate(i.date)}
                       </div>
                       <Badge className={i.color}>{i.type}</Badge>
                     </div>
                     <div className="flex items-center gap-1">
                       {i.type === "task" && <Checkbox checked={i.completed} onCheckedChange={() => toggleComplete(i)} />}
                       <Trash2 className="h-4 w-4 cursor-pointer" onClick={() => deleteItem(i)} />
+                      {i.type === "event" && (
+                        <ExternalLink 
+                          className="h-4 w-4 cursor-pointer text-blue-500" 
+                          onClick={() => openEventPage(i.id)}
+                        />
+                      )}
                     </div>
                   </div>
                 ))}

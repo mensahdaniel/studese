@@ -36,24 +36,51 @@ const Events = () => {
   useEffect(() => {
     const fetchEvents = async () => {
       setIsLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
-        setIsLoading(false);
-        return;
-      }
+      
+      try {
+        // Use the external API instead of Supabase
+        const lat = 49.78542855061154;
+        const lng = -97.1999175474503781;
+        const page = 1;
+        
+        const response = await fetch(
+          `https://nlgrnddx13.execute-api.us-east-1.amazonaws.com/prod/event/list?lat=${lat}&lng=${lng}&page=${page}`,
+          {
+            method: 'GET',
+            headers: {
+              'x-api-key': 'QLQFG0LMMpsaNyR65rDT3sArD4Bdyaq3RsHHdmEd'
+            }
+          }
+        );
 
-      const { data, error } = await supabase
-        .from("events")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("date", { ascending: true });
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
 
-      if (error) {
-        toast({ title: "Error", description: error.message, variant: "destructive" });
-      } else {
-        setEvents(data || []);
+        const responseData = await response.json();
+        
+        // Transform API response to match events page format
+        const eventsArray = responseData.events || [];
+        const formattedEvents = eventsArray.map((event: any) => ({
+          id: event.id,
+          title: event.title,
+          description: event.description,
+          category: "social", // Default category since API doesn't provide
+          date: event.localStart || event.date,
+          location: event.location?.address || event.location,
+          link: event.link
+        }));
+
+        setEvents(formattedEvents);
+      } catch (error) {
+        toast({ 
+          title: "Error", 
+          description: "Failed to fetch events from external API.", 
+          variant: "destructive" 
+        });
+        console.error('API fetch error:', error);
       }
+      
       setIsLoading(false);
     };
 
