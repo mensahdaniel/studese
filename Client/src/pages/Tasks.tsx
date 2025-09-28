@@ -4,12 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, CheckSquare, Calendar, Flag, Search } from "lucide-react";
+import { Plus, CheckSquare, Calendar, Flag, Search, Clock } from "lucide-react";
 import Layout from "@/components/Layout";
 import { supabase } from "@/utils/supabase";
 import { useToast } from "@/hooks/use-toast";
-import { formatDistanceToNow, isBefore, subDays } from "date-fns";
-import { formatInTimeZone } from 'date-fns-tz'; // ← ADDED TIMEZONE IMPORT
+import { isBefore, subDays } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const Tasks = () => {
@@ -28,6 +27,58 @@ const Tasks = () => {
     due_date: "",
     due_time: ""
   });
+
+  // FIXED: Correct time calculation for 2025 dates
+  const getAccurateTimeRemaining = (dueDate: string) => {
+    try {
+      const now = new Date();
+      const due = new Date(dueDate);
+      
+      console.log('🔍 TIME DEBUG 2025:', {
+        currentLocal: now.toString(),
+        currentYear: now.getFullYear(),
+        dueLocal: due.toString(), 
+        dueYear: due.getFullYear(),
+        dueDateInput: dueDate,
+        timeDiffMs: due.getTime() - now.getTime(),
+        timeDiffHours: (due.getTime() - now.getTime()) / (1000 * 60 * 60),
+        timeDiffMinutes: (due.getTime() - now.getTime()) / (1000 * 60)
+      });
+      
+      if (isNaN(due.getTime())) return 'Invalid date';
+      
+      const diffMs = due.getTime() - now.getTime();
+      const diffMinutes = Math.floor(diffMs / (1000 * 60));
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      
+      if (diffMs < 0) {
+        // Task is overdue
+        const absMinutes = Math.abs(diffMinutes);
+        const absHours = Math.abs(diffHours);
+        const absDays = Math.abs(diffDays);
+        
+        if (absDays > 0) return `${absDays} day${absDays !== 1 ? 's' : ''} ago`;
+        if (absHours > 0) return `${absHours} hour${absHours !== 1 ? 's' : ''} ago`;
+        return `${absMinutes} minute${absMinutes !== 1 ? 's' : ''} ago`;
+      } else {
+        // Task is upcoming
+        if (diffDays > 0) {
+          return `in ${diffDays} day${diffDays !== 1 ? 's' : ''}`;
+        }
+        if (diffHours > 0) {
+          return `in ${diffHours} hour${diffHours !== 1 ? 's' : ''}`;
+        }
+        if (diffMinutes > 0) {
+          return `in ${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''}`;
+        }
+        return 'due now';
+      }
+    } catch (error) {
+      console.error('Time calculation error:', error);
+      return 'Time error';
+    }
+  };
 
   useEffect(() => {
     const fetchTasks = async () => {
@@ -63,12 +114,13 @@ const Tasks = () => {
   const calculateDynamicPriority = (dueDate: string) => {
     const due = new Date(dueDate);
     const today = new Date();
-    if (isBefore(due, subDays(today, 0))) return "high";  // Overdue or today
-    if (isBefore(due, subDays(today, -2))) return "high";  // <2 days
-    if (isBefore(due, subDays(today, -7))) return "medium";  // <7 days
+    if (isBefore(due, subDays(today, 0))) return "high";
+    if (isBefore(due, subDays(today, -2))) return "high";
+    if (isBefore(due, subDays(today, -7))) return "medium";
     return "low";
   };
 
+  // FIXED: Proper date creation for 2025
   const handleAddTask = async () => {
     if (!newTask.title || !newTask.due_date) {
       toast({ title: "Missing fields", description: "Title and due date required.", variant: "destructive" });
@@ -81,17 +133,35 @@ const Tasks = () => {
       return;
     }
     
-    // Combine date and time into a single ISO string for the database
-    const dueDateTime = newTask.due_time 
-      ? `${newTask.due_date}T${newTask.due_time}` 
-      : newTask.due_date;
+    // FIXED: Create date in user's local timezone
+    let dueDate;
+    
+    if (newTask.due_time) {
+      // Combine date and time in local timezone
+      const [hours, minutes] = newTask.due_time.split(':');
+      dueDate = new Date(newTask.due_date);
+      dueDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+    } else {
+      // Default to 1 hour from now
+      dueDate = new Date();
+      dueDate.setHours(dueDate.getHours() + 1);
+    }
+
+    console.log('💾 SAVING TASK 2025:', {
+      inputDate: newTask.due_date,
+      inputTime: newTask.due_time,
+      finalDueDate: dueDate.toISOString(),
+      finalDueLocal: dueDate.toString(),
+      finalDueUTC: dueDate.toISOString(),
+      timeRemaining: getAccurateTimeRemaining(dueDate.toISOString())
+    });
 
     const taskToAdd = {
       title: newTask.title,
       description: newTask.description,
       category: newTask.category,
       priority: newTask.priority,
-      due_date: dueDateTime, // Use the combined datetime here
+      due_date: dueDate.toISOString(),
       user_id: user.id,
       completed: false
     };
@@ -123,13 +193,10 @@ const Tasks = () => {
 
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
-      console.error("Update error:", error);
     } else if (data && data.length > 0) {
       const updatedData = { ...task, completed: data[0].completed, dynamic_priority: calculateDynamicPriority(task.due_date) };
       setTasks(tasks.map(t => t.id === task.id ? updatedData : t));
       toast({ title: "Success", description: `Task marked as ${updatedTask.completed ? "completed" : "incomplete"}!` });
-    } else {
-      toast({ title: "Error", description: "Failed to update task.", variant: "destructive" });
     }
   };
 
@@ -150,9 +217,9 @@ const Tasks = () => {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case "high": return "bg-red-500/10 text-red-600";
-      case "medium": return "bg-yellow-500/10 text-yellow-600";
-      case "low": return "bg-green-500/10 text-green-600";
+      case "high": return "bg-red-500/10 text-red-600 border-red-200";
+      case "medium": return "bg-yellow-500/10 text-yellow-600 border-yellow-200";
+      case "low": return "bg-green-500/10 text-green-600 border-green-200";
       default: return "bg-muted text-muted-foreground";
     }
   };
@@ -167,17 +234,6 @@ const Tasks = () => {
     }
   };
 
-  // FIXED: Timezone-aware date display
-  const getDaysUntilDue = (dueDate: string) => {
-    try {
-      // Convert to CDT timezone (America/Chicago) before calculating
-      const cdtDate = formatInTimeZone(new Date(dueDate), 'America/Chicago', 'yyyy-MM-dd HH:mm:ss');
-      return formatDistanceToNow(new Date(cdtDate), { addSuffix: true });
-    } catch (error) {
-      return formatDistanceToNow(new Date(dueDate), { addSuffix: true });
-    }
-  };
-
   const filteredTasks = tasks.filter(task => {
     const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           task.description?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -185,17 +241,23 @@ const Tasks = () => {
     return matchesSearch && matchesFilter;
   });
 
+  // Get current date in 2025 for the date input
+  const getTodayDate = () => {
+    const today = new Date();
+    today.setFullYear(2025); // Set to 2025
+    return today.toISOString().split('T')[0];
+  };
+
   return (
     <Layout>
       <div className="p-6 space-y-6">
-        {/* Page Title and Badge */}
         <div className="flex items-center gap-4">
           <h1 className="text-3xl font-bold tracking-tight">Task Reminders</h1>
           <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
-            Demo Version
+            September 2025
           </Badge>
         </div>
-        {/* Tasks Overview Cards */}
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-4 text-center">
@@ -208,7 +270,7 @@ const Tasks = () => {
 
           <Card>
             <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-success">
+              <div className="text-2xl font-bold text-green-600">
                 {tasks.filter(t => t.completed).length}
               </div>
               <p className="text-sm text-muted-foreground">Completed</p>
@@ -217,7 +279,7 @@ const Tasks = () => {
 
           <Card>
             <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-destructive">
+              <div className="text-2xl font-bold text-red-600">
                 {tasks.filter(t => t.priority === "high" && !t.completed).length}
               </div>
               <p className="text-sm text-muted-foreground">High Priority</p>
@@ -226,7 +288,7 @@ const Tasks = () => {
 
           <Card>
             <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-warning">
+              <div className="text-2xl font-bold text-orange-600">
                 {tasks.filter(t => new Date(t.due_date) < new Date() && !t.completed).length}
               </div>
               <p className="text-sm text-muted-foreground">Overdue</p>
@@ -234,24 +296,35 @@ const Tasks = () => {
           </Card>
         </div>
 
-        {/* Search */}
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search tasks..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+        <div className="flex gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search tasks..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Select value={selectedFilter} onValueChange={setSelectedFilter}>
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="Filter" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="high">High</SelectItem>
+              <SelectItem value="medium">Medium</SelectItem>
+              <SelectItem value="low">Low</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
-        {/* Add Task Button */}
         <Button onClick={() => setShowForm(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Add Task
         </Button>
 
-        {/* Add Task Form */}
         {showForm && (
           <Card>
             <CardHeader>
@@ -279,40 +352,75 @@ const Tasks = () => {
                   <SelectItem value="collaborative">Collaborative</SelectItem>
                 </SelectContent>
               </Select>
-              <Input
-                type="date"
-                value={newTask.due_date}
-                onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
-              />
-              <Input
-                type="time"
-                value={newTask.due_time || ''}
-                onChange={(e) => setNewTask({ ...newTask, due_time: e.target.value })}
-                className="mt-2"
-              />
-              <Button onClick={handleAddTask}>Save Task</Button>
+              <Select value={newTask.priority} onValueChange={(val) => setNewTask({ ...newTask, priority: val })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  type="date"
+                  value={newTask.due_date}
+                  onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
+                  placeholder="Select date"
+                  min={getTodayDate()}
+                />
+                <Input
+                  type="time"
+                  value={newTask.due_time}
+                  onChange={(e) => setNewTask({ ...newTask, due_time: e.target.value })}
+                  placeholder="Select time"
+                />
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {newTask.due_date && (
+                  <div>
+                    <strong>Task will be due:</strong>{' '}
+                    {new Date(
+                      newTask.due_time 
+                        ? `${newTask.due_date}T${newTask.due_time}`
+                        : newTask.due_date
+                    ).toLocaleString()}
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={handleAddTask}>Save Task</Button>
+                <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
+              </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Tasks List */}
         <div className="space-y-4">
           {loading ? (
-            <p>Loading tasks...</p>
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <p className="text-muted-foreground mt-2">Loading tasks...</p>
+            </div>
           ) : (
             filteredTasks.map((task) => (
-              <Card key={task.id}>
+              <Card key={task.id} className={`${task.completed ? 'opacity-60' : ''}`}>
                 <CardContent className="p-4">
                   <div className="flex items-start gap-4">
                     <Checkbox
                       checked={task.completed}
                       onCheckedChange={() => handleToggleCompleted(task)}
+                      className="mt-1"
                     />
                     <div className="flex-1 space-y-2">
                       <div className="flex items-start justify-between gap-4">
-                        <h3 className={`font-medium ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
-                          {task.title}
-                        </h3>
+                        <div className="flex-1">
+                          <h3 className={`font-medium text-lg ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
+                            {task.title}
+                          </h3>
+                          <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
+                        </div>
                         <div className="flex gap-2">
                           <Badge variant="outline" className={getPriorityColor(task.dynamic_priority)}>
                             <Flag className="h-3 w-3 mr-1" />
@@ -327,14 +435,18 @@ const Tasks = () => {
                           </Button>
                         </div>
                       </div>
-                      <p className="text-sm text-muted-foreground">{task.description}</p>
                       <div className="flex items-center justify-between">
                         <Badge variant="secondary" className={getCategoryColor(task.category)}>
                           {task.category}
                         </Badge>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <Calendar className="h-4 w-4" />
-                          {getDaysUntilDue(task.due_date)}
+                        <div className="flex items-center gap-2 text-sm">
+                          <Clock className="h-4 w-4 text-muted-foreground" />
+                          <span className={`font-medium ${
+                            task.dynamic_priority === 'high' && !task.completed ? 'text-red-600' : 
+                            task.completed ? 'text-green-600' : 'text-muted-foreground'
+                          }`}>
+                            {getAccurateTimeRemaining(task.due_date)}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -353,6 +465,10 @@ const Tasks = () => {
               <p className="text-muted-foreground mb-4">
                 {searchTerm ? "Try adjusting your search terms" : "This is your personal to-do list. Add a task to organize your study sessions!"}
               </p>
+              <Button onClick={() => setShowForm(true)} variant="outline">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Your First Task
+              </Button>
             </CardContent>
           </Card>
         )}
