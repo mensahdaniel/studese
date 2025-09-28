@@ -9,7 +9,8 @@ import {
   Search, 
   Filter,
   ExternalLink,
-  Plus
+  Plus,
+  Clock
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { supabase } from "@/utils/supabase";
@@ -33,12 +34,59 @@ const Events = () => {
     link: ""
   });
 
+  // FIXED: Accurate time calculation function
+  const getAccurateTimeRemaining = (eventDate: string) => {
+    try {
+      const now = new Date();
+      const due = new Date(eventDate);
+      
+      if (isNaN(due.getTime())) return 'Invalid date';
+      
+      const diffMs = due.getTime() - now.getTime();
+      const diffMinutes = Math.floor(diffMs / (1000 * 60));
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      
+      if (diffMs < 0) {
+        // Past date
+        const absMinutes = Math.abs(diffMinutes);
+        const absHours = Math.abs(diffHours);
+        const absDays = Math.abs(diffDays);
+        
+        if (absDays > 0) return `${absDays} day${absDays !== 1 ? 's' : ''} ago`;
+        if (absHours > 0) return `${absHours} hour${absHours !== 1 ? 's' : ''} ago`;
+        return `${absMinutes} minute${absMinutes !== 1 ? 's' : ''} ago`;
+      } else {
+        // Future date
+        if (diffDays > 0) return `in ${diffDays} day${diffDays !== 1 ? 's' : ''}`;
+        if (diffHours > 0) return `in ${diffHours} hour${diffHours !== 1 ? 's' : ''}`;
+        if (diffMinutes > 0) return `in ${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''}`;
+        return 'now';
+      }
+    } catch (error) {
+      return 'Time error';
+    }
+  };
+
+  // FIXED: Clickable event handler
+  const handleEventClick = (event: any) => {
+    if (event.link) {
+      window.open(event.link, '_blank');
+    } else if (event.id && (event.id.includes('hypafy') || event.id.length > 10)) {
+      window.open(`https://www.events.hypafy.com/events/${event.id}`, '_blank');
+    } else {
+      toast({
+        title: event.title,
+        description: `Date: ${formatDate(event.date)}\nLocation: ${event.location || 'TBA'}\nTime remaining: ${getAccurateTimeRemaining(event.date)}`,
+      });
+    }
+  };
+
   useEffect(() => {
     const fetchEvents = async () => {
       setIsLoading(true);
       
       try {
-        // Use the external API instead of Supabase
         const lat = 49.78542855061154;
         const lng = -97.1999175474503781;
         const page = 1;
@@ -58,14 +106,12 @@ const Events = () => {
         }
 
         const responseData = await response.json();
-        
-        // Transform API response to match events page format
         const eventsArray = responseData.events || [];
         const formattedEvents = eventsArray.map((event: any) => ({
           id: event.id,
           title: event.title,
           description: event.description,
-          category: "social", // Default category since API doesn't provide
+          category: "social",
           date: event.localStart || event.date,
           location: event.location?.address || event.location,
           link: event.link
@@ -150,7 +196,9 @@ const Events = () => {
       weekday: 'long', 
       year: 'numeric', 
       month: 'long', 
-      day: 'numeric' 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
 
@@ -205,7 +253,7 @@ const Events = () => {
                 </SelectContent>
               </Select>
               <Input
-                type="date"
+                type="datetime-local"
                 value={newEvent.date}
                 onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })}
               />
@@ -256,47 +304,64 @@ const Events = () => {
           ))}
         </div>
 
-        {/* Events Grid */}
+        {/* FIXED: Events Grid with Clickable Cards */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredEvents.map((event) => (
-            <Card key={event.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-              <div className="aspect-video bg-muted relative">
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                <div className="absolute bottom-4 left-4 right-4">
+            <Card 
+              key={event.id} 
+              className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer border-2 border-transparent hover:border-blue-300"
+              onClick={() => handleEventClick(event)}
+            >
+              <div className="aspect-video bg-gradient-to-br from-blue-50 to-purple-50 relative">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+                <div className="absolute bottom-3 left-3">
                   <Badge variant="secondary" className={getCategoryColor(event.category)}>
                     {event.category}
+                  </Badge>
+                </div>
+                <div className="absolute top-3 right-3">
+                  <Badge variant="outline" className="bg-white/90">
+                    <Clock className="h-3 w-3 mr-1" />
+                    {getAccurateTimeRemaining(event.date)}
                   </Badge>
                 </div>
               </div>
               
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg leading-tight">{event.title}</CardTitle>
+                <CardTitle className="text-lg leading-tight hover:text-blue-600 transition-colors">
+                  {event.title}
+                </CardTitle>
                 <p className="text-sm text-muted-foreground line-clamp-2">
                   {event.description}
                 </p>
               </CardHeader>
               
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Calendar className="h-4 w-4" />
                     {formatDate(event.date)}
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <MapPin className="h-4 w-4" />
-                    {event.location}
-                  </div>
+                  {event.location && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <MapPin className="h-4 w-4" />
+                      {event.location}
+                    </div>
+                  )}
                 </div>
                 
                 <div className="flex gap-2">
-                  {event.link && (
-                    <Button size="sm" variant="outline" asChild>
-                      <a href={event.link} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        Join Online
-                      </a>
-                    </Button>
-                  )}
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEventClick(event);
+                    }}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    View Details
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -304,7 +369,7 @@ const Events = () => {
         </div>
 
         {/* Empty State */}
-        {filteredEvents.length === 0 && (
+        {filteredEvents.length === 0 && !isLoading && (
           <Card className="py-12">
             <CardContent className="text-center">
               <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -312,8 +377,9 @@ const Events = () => {
               <p className="text-muted-foreground mb-4">
                 {searchTerm ? "Try adjusting your search terms or filters" : "No events are currently available"}
               </p>
-              <Button variant="outline">
-                View All Events
+              <Button onClick={() => setShowForm(true)} variant="outline">
+                <Plus className="h-4 w-4 mr-2" />
+                Create First Event
               </Button>
             </CardContent>
           </Card>
@@ -322,16 +388,22 @@ const Events = () => {
         {/* Upcoming Events Summary */}
         <Card>
           <CardHeader>
-            <CardTitle>This Week's Highlights</CardTitle>
+            <CardTitle>Events Summary</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid md:grid-cols-3 gap-4">
+            <div className="grid md:grid-cols-4 gap-4">
               <div className="text-center p-4 rounded-lg bg-primary/5">
                 <div className="text-2xl font-bold text-primary">{events.length}</div>
                 <p className="text-sm text-muted-foreground">Total Events</p>
               </div>
-              <div className="text-center p-4 rounded-lg bg-warning/5">
-                <div className="text-2xl font-bold text-warning">
+              <div className="text-center p-4 rounded-lg bg-green-500/5">
+                <div className="text-2xl font-bold text-green-600">
+                  {events.filter(e => new Date(e.date) > new Date()).length}
+                </div>
+                <p className="text-sm text-muted-foreground">Upcoming</p>
+              </div>
+              <div className="text-center p-4 rounded-lg bg-blue-500/5">
+                <div className="text-2xl font-bold text-blue-600">
                   {events.filter(e => {
                     const eventDate = new Date(e.date);
                     const today = new Date();
@@ -339,6 +411,12 @@ const Events = () => {
                   }).length}
                 </div>
                 <p className="text-sm text-muted-foreground">This Week</p>
+              </div>
+              <div className="text-center p-4 rounded-lg bg-orange-500/5">
+                <div className="text-2xl font-bold text-orange-600">
+                  {events.filter(e => new Date(e.date) < new Date()).length}
+                </div>
+                <p className="text-sm text-muted-foreground">Past Events</p>
               </div>
             </div>
           </CardContent>
