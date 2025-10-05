@@ -28,41 +28,44 @@ const Tasks = () => {
     due_time: ""
   });
 
-  // FIXED: Correct time calculation for 2025 dates
-  const getAccurateTimeRemaining = (dueDate: string) => {
+  // =============================================
+  // 🕒 FIXED TIME CALCULATION WITH TIMEZONE HANDLING
+  // =============================================
+  /**
+   * BOSS'S FIX: Proper timezone handling
+   * - Database stores UTC time
+   * - We calculate using user's local timezone
+   */
+  const getAccurateTimeRemaining = (dueDateUTC: string): string => {
     try {
-      const now = new Date();
-      const due = new Date(dueDate);
+      // Convert UTC time from database to user's local time
+      const dueDateLocal = new Date(dueDateUTC);
+      const nowLocal = new Date(); // Already in user's local time
       
-      console.log('🔍 TIME DEBUG 2025:', {
-        currentLocal: now.toString(),
-        currentYear: now.getFullYear(),
-        dueLocal: due.toString(), 
-        dueYear: due.getFullYear(),
-        dueDateInput: dueDate,
-        timeDiffMs: due.getTime() - now.getTime(),
-        timeDiffHours: (due.getTime() - now.getTime()) / (1000 * 60 * 60),
-        timeDiffMinutes: (due.getTime() - now.getTime()) / (1000 * 60)
-      });
+      // Calculate difference in milliseconds
+      const diffMs = dueDateLocal.getTime() - nowLocal.getTime();
       
-      if (isNaN(due.getTime())) return 'Invalid date';
-      
-      const diffMs = due.getTime() - now.getTime();
-      const diffMinutes = Math.floor(diffMs / (1000 * 60));
-      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-      
+      // If difference is negative, task is overdue
       if (diffMs < 0) {
-        // Task is overdue
-        const absMinutes = Math.abs(diffMinutes);
-        const absHours = Math.abs(diffHours);
-        const absDays = Math.abs(diffDays);
+        const absDiffMs = Math.abs(diffMs);
+        const diffMinutes = Math.floor(absDiffMs / (1000 * 60));
+        const diffHours = Math.floor(absDiffMs / (1000 * 60 * 60));
+        const diffDays = Math.floor(absDiffMs / (1000 * 60 * 60 * 24));
         
-        if (absDays > 0) return `${absDays} day${absDays !== 1 ? 's' : ''} ago`;
-        if (absHours > 0) return `${absHours} hour${absHours !== 1 ? 's' : ''} ago`;
-        return `${absMinutes} minute${absMinutes !== 1 ? 's' : ''} ago`;
-      } else {
-        // Task is upcoming
+        if (diffDays > 0) {
+          return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+        }
+        if (diffHours > 0) {
+          return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+        }
+        return `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''} ago`;
+      } 
+      // If difference is positive, task is upcoming
+      else {
+        const diffMinutes = Math.floor(diffMs / (1000 * 60));
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        
         if (diffDays > 0) {
           return `in ${diffDays} day${diffDays !== 1 ? 's' : ''}`;
         }
@@ -78,6 +81,27 @@ const Tasks = () => {
       console.error('Time calculation error:', error);
       return 'Time error';
     }
+  };
+
+  // =============================================
+  // 📅 BOSS'S FIX: CONVERT UTC TO LOCAL TIME FOR DISPLAY
+  // =============================================
+  /**
+   * Convert UTC time from database to user's local time for display
+   */
+  const formatDateForDisplay = (utcDateString: string): string => {
+    const dueDate = new Date(utcDateString);
+    
+    return dueDate.toLocaleString("en-US", {
+      weekday: "long",
+      month: "short", 
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, // User's local timezone
+    });
   };
 
   useEffect(() => {
@@ -120,7 +144,12 @@ const Tasks = () => {
     return "low";
   };
 
-  // FIXED: Proper date creation for 2025
+  // =============================================
+  // ➕ BOSS'S FIX: CONVERT LOCAL TIME TO UTC FOR DATABASE
+  // =============================================
+  /**
+   * BOSS'S FIX: Convert user's local time to UTC before saving to database
+   */
   const handleAddTask = async () => {
     if (!newTask.title || !newTask.due_date) {
       toast({ title: "Missing fields", description: "Title and due date required.", variant: "destructive" });
@@ -133,27 +162,38 @@ const Tasks = () => {
       return;
     }
     
-    // FIXED: Create date in user's local timezone
-    let dueDate;
+    // 🕒 BOSS'S FIX: Handle date/time with timezone conversion
+    let dueDate: Date;
     
     if (newTask.due_time) {
-      // Combine date and time in local timezone
-      const [hours, minutes] = newTask.due_time.split(':');
-      dueDate = new Date(newTask.due_date);
-      dueDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      // User selected both date and time in THEIR local timezone
+      const localDateTimeString = `${newTask.due_date}T${newTask.due_time}`;
+      dueDate = new Date(localDateTimeString);
     } else {
-      // Default to 1 hour from now
+      // Default to 1 hour from now in user's local time
       dueDate = new Date();
       dueDate.setHours(dueDate.getHours() + 1);
+      
+      toast({ 
+        title: "Note", 
+        description: "No time specified. Defaulting to 1 hour from now." 
+      });
     }
 
-    console.log('💾 SAVING TASK 2025:', {
-      inputDate: newTask.due_date,
-      inputTime: newTask.due_time,
-      finalDueDate: dueDate.toISOString(),
-      finalDueLocal: dueDate.toString(),
-      finalDueUTC: dueDate.toISOString(),
-      timeRemaining: getAccurateTimeRemaining(dueDate.toISOString())
+    // Validate the date
+    if (isNaN(dueDate.getTime())) {
+      toast({ title: "Error", description: "Invalid date/time combination.", variant: "destructive" });
+      return;
+    }
+
+    // 🎯 BOSS'S KEY FIX: Convert to UTC before saving to database
+    const utcDateString = dueDate.toISOString();
+
+    console.log('🕒 TIME CONVERSION DEBUG:', {
+      userInput: { date: newTask.due_date, time: newTask.due_time },
+      localTime: dueDate.toString(),
+      storedAsUTC: utcDateString,
+      timeRemaining: getAccurateTimeRemaining(utcDateString)
     });
 
     const taskToAdd = {
@@ -161,7 +201,7 @@ const Tasks = () => {
       description: newTask.description,
       category: newTask.category,
       priority: newTask.priority,
-      due_date: dueDate.toISOString(),
+      due_date: utcDateString, // Store as UTC in database
       user_id: user.id,
       completed: false
     };
@@ -240,13 +280,6 @@ const Tasks = () => {
     const matchesFilter = selectedFilter === "all" || task.dynamic_priority === selectedFilter || (selectedFilter === "completed" && task.completed);
     return matchesSearch && matchesFilter;
   });
-
-  // Get current date in 2025 for the date input
-  const getTodayDate = () => {
-    const today = new Date();
-    today.setFullYear(2025); // Set to 2025
-    return today.toISOString().split('T')[0];
-  };
 
   return (
     <Layout>
@@ -368,7 +401,6 @@ const Tasks = () => {
                   value={newTask.due_date}
                   onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
                   placeholder="Select date"
-                  min={getTodayDate()}
                 />
                 <Input
                   type="time"
@@ -377,18 +409,26 @@ const Tasks = () => {
                   placeholder="Select time"
                 />
               </div>
-              <div className="text-sm text-muted-foreground">
-                {newTask.due_date && (
-                  <div>
-                    <strong>Task will be due:</strong>{' '}
-                    {new Date(
-                      newTask.due_time 
-                        ? `${newTask.due_date}T${newTask.due_time}`
-                        : newTask.due_date
-                    ).toLocaleString()}
-                  </div>
-                )}
-              </div>
+              
+              {/* 🆕 BOSS'S FIX: Show local time preview */}
+              {newTask.due_date && (
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <h4 className="font-semibold text-blue-800 mb-2">📅 Task Due Preview</h4>
+                  {newTask.due_time ? (
+                    <div className="space-y-1 text-sm">
+                      <div><strong>Your local time:</strong> {formatDateForDisplay(new Date(`${newTask.due_date}T${newTask.due_time}`).toISOString())}</div>
+                      <div><strong>Time remaining:</strong> {
+                        getAccurateTimeRemaining(new Date(`${newTask.due_date}T${newTask.due_time}`).toISOString())
+                      }</div>
+                    </div>
+                  ) : (
+                    <div className="text-orange-600 text-sm">
+                      ⚠️ No time selected. Will default to 1 hour from now.
+                    </div>
+                  )}
+                </div>
+              )}
+              
               <div className="flex gap-2">
                 <Button onClick={handleAddTask}>Save Task</Button>
                 <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
@@ -420,6 +460,10 @@ const Tasks = () => {
                             {task.title}
                           </h3>
                           <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
+                          {/* 🆕 BOSS'S FIX: Show actual due date in user's timezone */}
+                          <p className="text-xs text-gray-500 mt-1">
+                            Due: {formatDateForDisplay(task.due_date)}
+                          </p>
                         </div>
                         <div className="flex gap-2">
                           <Badge variant="outline" className={getPriorityColor(task.dynamic_priority)}>
@@ -463,7 +507,7 @@ const Tasks = () => {
               <CheckSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">No tasks found</h3>
               <p className="text-muted-foreground mb-4">
-                {searchTerm ? "Try adjusting your search terms" : "This is your personal to-do list. Add a task to organize your study sessions!"}
+                {searchTerm ? "Try adjusting your search terms" : "Get started by adding your first task!"}
               </p>
               <Button onClick={() => setShowForm(true)} variant="outline">
                 <Plus className="h-4 w-4 mr-2" />
