@@ -15,7 +15,7 @@ type Note = {
   category: string;
   date: string;
   pinned: boolean;
-  content: string; // base64 preview
+  content: string;
 };
 
 const Notes = () => {
@@ -24,15 +24,15 @@ const Notes = () => {
   const [notes, setNotes] = useState<Note[]>([]);
   const [user, setUser] = useState<any>(null);
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(true); // Added loading state
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchUserAndNotes = async () => {
-      setIsLoading(true); // Set loading to true at the start of fetch
+      setIsLoading(true);
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user) {
         toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
-        setIsLoading(false); // Stop loading if authentication fails
+        setIsLoading(false);
         return;
       }
       setUser(user);
@@ -48,7 +48,7 @@ const Notes = () => {
       } else {
         setNotes(data || []);
       }
-      setIsLoading(false); // Set loading to false after data is fetched
+      setIsLoading(false);
     };
     fetchUserAndNotes();
   }, [toast]);
@@ -106,7 +106,7 @@ const Notes = () => {
     }
   };
 
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>; // Loading screen
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
 
   return (
     <Layout>

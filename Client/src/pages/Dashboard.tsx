@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, CheckSquare, FileText, Plus, LogOut, BookOpen } from "lucide-react";
+import { Calendar, CheckSquare, FileText, Plus, LogOut, BookOpen, Crown, Zap, Star, Shield } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { supabase } from "@/utils/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow, isBefore, subDays } from "date-fns";
+import { isProUser } from "@/utils/subscription";
 
 const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString();
 
@@ -14,6 +15,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
+  const [isPro, setIsPro] = useState(false);
   const [recentNotes, setRecentNotes] = useState<any[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
   const [todaysTasks, setTodaysTasks] = useState<any[]>([]);
@@ -35,6 +37,21 @@ const Dashboard = () => {
         return;
       }
       setUser(user);
+      
+      // Check subscription status
+      const proStatus = await isProUser(user.id);
+      setIsPro(proStatus);
+      
+      // ⚠️ CRITICAL: Redirect non-paying users to pricing page
+      if (!proStatus) {
+        toast({ 
+          title: "Subscription Required", 
+          description: "Please subscribe to access Studese Pro", 
+          variant: "destructive" 
+        });
+        navigate("/pricing");
+        return;
+      }
     };
     fetchUser();
   }, [toast, navigate]);
@@ -47,7 +64,8 @@ const Dashboard = () => {
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
-        .limit(5);
+        .limit(isPro ? 10 : 3); // Limit notes for free users
+
       setRecentNotes(notesData || []);
 
       const { count: noteCount } = await supabase
@@ -77,7 +95,7 @@ const Dashboard = () => {
       setTodaysTasks(updatedTasks);
     };
     fetchData();
-  }, [user]);
+  }, [user, isPro]);
 
   const calculateDynamicPriority = (dueDate: string) => {
     const due = new Date(dueDate);
@@ -104,7 +122,8 @@ const Dashboard = () => {
               {getGreeting()}, {user?.user_metadata?.username || "Student"} 👋
             </h1>
             <p className="text-muted-foreground mt-1">
-              Here's what's happening today:
+              {isPro ? "🎉 Welcome to Studese Pro!" : "Start organizing your studies"}
+              {isPro && <span className="ml-2 bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-2 py-1 rounded text-sm">PRO</span>}
             </p>
           </div>
           <Button variant="outline" onClick={handleSignOut} className="flex items-center gap-2">
@@ -112,6 +131,37 @@ const Dashboard = () => {
             Sign Out
           </Button>
         </div>
+
+        {/* Pro Features - Only show for Pro users */}
+        {isPro && (
+          <Card className="bg-gradient-to-r from-green-50 to-blue-50 border-green-200">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg font-semibold text-green-800">
+                <Star className="h-5 w-5" /> Premium Features Active
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center p-4 bg-white rounded-lg border">
+                  <div className="text-2xl">📊</div>
+                  <p className="font-semibold text-sm">Advanced Analytics</p>
+                </div>
+                <div className="text-center p-4 bg-white rounded-lg border">
+                  <div className="text-2xl">🎯</div>
+                  <p className="font-semibold text-sm">Smart Reminders</p>
+                </div>
+                <div className="text-center p-4 bg-white rounded-lg border">
+                  <div className="text-2xl">🔒</div>
+                  <p className="font-semibold text-sm">Priority Support</p>
+                </div>
+                <div className="text-center p-4 bg-white rounded-lg border">
+                  <div className="text-2xl">🚀</div>
+                  <p className="font-semibold text-sm">Early Access</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Grid Layout for Events, Tasks, Notes */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -184,24 +234,28 @@ const Dashboard = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg font-semibold">
                 <FileText className="h-5 w-5 text-primary" /> Recent Notes ({noteCount})
+                <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Unlimited</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
               {recentNotes.length ? (
-                recentNotes.map(note => (
-                  <div
-                    key={note.id}
-                    className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent transition"
-                  >
-                    <p className="font-medium text-sm">{note.title}</p>
-                    <span className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(new Date(note.created_at), { addSuffix: true })}
-                    </span>
-                  </div>
-                ))
+                <div className="space-y-3">
+                  {recentNotes.map(note => (
+                    <div
+                      key={note.id}
+                      className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent transition"
+                    >
+                      <p className="font-medium text-sm">{note.title}</p>
+                      <span className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(new Date(note.created_at), { addSuffix: true })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <EmptyState icon={FileText} text="No notes yet" subtext="Start capturing your thoughts" />
               )}
+
               <div className="mt-4 text-right">
                 <Button variant="outline" asChild>
                   <Link to="/Notes"><Plus className="h-4 w-4 mr-2" /> Add Note</Link>
@@ -238,7 +292,6 @@ const EmptyState = ({ icon: Icon, text, subtext }: any) => (
   <div className="text-center py-8 text-muted-foreground">
     <Icon className="h-8 w-8 mx-auto mb-2 opacity-50" />
     <p className="text-sm font-medium">{text}</p>
-    <p className="text-xs">{subtext}</p>
   </div>
 );
 
