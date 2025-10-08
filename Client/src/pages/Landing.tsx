@@ -2,7 +2,6 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight, Calendar, FileText, CheckSquare, MapPin } from "lucide-react";
-import heroImage from "@/assets/hero-dashboard.jpg";
 
 const Landing = () => {
   return (
@@ -17,7 +16,7 @@ const Landing = () => {
             <span className="font-semibold text-xl">StudEse</span>
           </div>
           
-          <Link to="/login">
+          <Link to="/login?mode=signup">
             <Button>Get Started</Button>
           </Link>
         </div>
@@ -40,16 +39,10 @@ const Landing = () => {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4">
-              <Link to="/login">
+              <Link to="/login?mode=signup">
                 <Button size="lg" className="w-full sm:w-auto">
                   Get Started
                   <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
-              
-              <Link to="/dashboard">
-                <Button variant="outline" size="lg" className="w-full sm:w-auto">
-                  View Dashboard
                 </Button>
               </Link>
             </div>
@@ -156,7 +149,7 @@ const Landing = () => {
             <p className="text-lg opacity-90 mb-8 max-w-2xl mx-auto">
               Join thousands of students who have simplified their campus life with StudEse.
             </p>
-            <Link to="/login">
+            <Link to="/login?mode=signup">
               <Button size="lg" variant="secondary">
                 Start Your Journey
                 <ArrowRight className="ml-2 h-4 w-4" />

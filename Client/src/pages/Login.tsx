@@ -1,10 +1,10 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Crown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/utils/supabase";
 
@@ -17,6 +17,15 @@ const Login = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+
+  // Auto-set to signup mode if URL has ?mode=signup
+  useEffect(() => {
+    const signupMode = searchParams.get('mode') === 'signup';
+    if (signupMode) {
+      setIsSignUp(true);
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,16 +48,20 @@ const Login = () => {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/dashboard`,
             data: { username },
           },
         });
         if (error) throw error;
+        
         toast({
-          title: "Account created!",
-          description: "Check your email to confirm your account.",
+          title: "Account created! 🎉",
+          description: "You can now subscribe to Studese Pro.",
         });
-        setIsSignUp(false); // Switch back to sign-in form
+        
+        // Redirect to pricing page after successful signup
+        navigate("/pricing");
+        return;
+        
       } else {
         // Sign-in
         const { error } = await supabase.auth.signInWithPassword({
@@ -56,6 +69,7 @@ const Login = () => {
           password,
         });
         if (error) throw error;
+        
         toast({
           title: "Welcome back! 🎉",
           description: "You've been successfully logged in.",
@@ -84,15 +98,17 @@ const Login = () => {
             </div>
             <span className="font-semibold text-2xl group-hover:text-primary transition-colors">StudEse</span>
           </Link>
-          <p className="text-muted-foreground">Simplify your campus life</p>
+          <p className="text-muted-foreground">
+            {isSignUp ? "Create your account to get started" : "Access your premium dashboard"}
+          </p>
         </div>
 
         {/* Login/Sign-up Card */}
         <Card className="border-border">
           <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl">{isSignUp ? "Create an Account" : "Welcome back 👋"}</CardTitle>
+            <CardTitle className="text-2xl">{isSignUp ? "Create Account" : "Welcome back 👋"}</CardTitle>
             <CardDescription>
-              {isSignUp ? "Sign up to start organizing your campus life" : "Enter your credentials to access your productivity dashboard"}
+              {isSignUp ? "Sign up to start your journey with Studese Pro" : "Enter your credentials to access your premium dashboard"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -128,7 +144,7 @@ const Login = () => {
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
+                    placeholder={isSignUp ? "Create a password" : "Enter your password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full pr-10"
@@ -155,11 +171,11 @@ const Login = () => {
                 disabled={isLoading}
                 onClick={handleSubmit}
               >
-                {isLoading ? (isSignUp ? "Signing up..." : "Signing in...") : (isSignUp ? "Sign Up" : "Sign In")}
+                {isLoading ? (isSignUp ? "Creating account..." : "Signing in...") : (isSignUp ? "Create Account" : "Sign In")}
               </Button>
             </div>
 
-            <div className="text-center space-y-2">
+            <div className="text-center space-y-4">
               <p className="text-sm text-muted-foreground">
                 {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
                 <Button
@@ -172,37 +188,15 @@ const Login = () => {
               </p>
               
               {!isSignUp && (
-                <Button 
-                  variant="link" 
-                  className="p-0 h-auto text-xs font-normal text-muted-foreground"
-                  onClick={async () => {
-                    if (!email) {
-                      toast({
-                        title: "Error",
-                        description: "Please enter your email to reset password.",
-                        variant: "destructive",
-                      });
-                      return;
-                    }
-                    try {
-                      await supabase.auth.resetPasswordForEmail(email, {
-                        redirectTo: `${window.location.origin}/reset-password`,
-                      });
-                      toast({
-                        title: "Password reset email sent",
-                        description: "Check your email for a password reset link.",
-                      });
-                    } catch (error: any) {
-                      toast({
-                        title: "Error",
-                        description: error.message || "Failed to send reset email.",
-                        variant: "destructive",
-                      });
-                    }
-                  }}
-                >
-                  Forgot your password?
-                </Button>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 text-blue-800 text-sm">
+                    <Crown className="h-4 w-4" />
+                    <span className="font-medium">Premium Access Required</span>
+                  </div>
+                  <p className="text-xs text-blue-600 mt-1">
+                    Studese is a paid service. Subscribe first, then login here.
+                  </p>
+                </div>
               )}
             </div>
           </CardContent>

@@ -14,10 +14,9 @@ import { lazy, Suspense } from "react";
 const Excalidraw = lazy(() => import("@excalidraw/excalidraw").then((module) => ({ default: module.Excalidraw })));
 import "@excalidraw/excalidraw/index.css";
 
-// Define a minimal default appState to avoid collaborators error
 const defaultAppState = {
-  collaborators: new Map(), // Must be a Map, not array
-  viewBackgroundColor: "#ffffff", // Default background
+  collaborators: new Map(),
+  viewBackgroundColor: "#ffffff",
 };
 
 const NoteEditor = () => {
@@ -57,7 +56,6 @@ const NoteEditor = () => {
           return;
         }
 
-        // Convert collaborators object back to Map if needed
         const loadedAppState = data.scene.appState || {};
         const collaborators = loadedAppState.collaborators
           ? new Map(Object.entries(loadedAppState.collaborators))
@@ -72,12 +70,12 @@ const NoteEditor = () => {
           appState: {
             ...defaultAppState,
             ...loadedAppState,
-            collaborators, // Ensure it's a Map
+            collaborators,
           },
           files: data.scene.files || {},
         });
       } else {
-        setInitialData({ elements: [], appState: defaultAppState, files: {} }); // Default for new notes
+        setInitialData({ elements: [], appState: defaultAppState, files: {} });
       }
       setIsLoading(false);
     };
@@ -107,7 +105,6 @@ const NoteEditor = () => {
     const files = excalidrawAPI.getFiles();
     const scene = { elements, appState, files };
 
-    // Export preview as PNG blob and convert to base64
     const blob = await exportToBlob({ elements, appState, files });
     const base64 = await new Promise<string>((resolve) => {
       const reader = new FileReader();
