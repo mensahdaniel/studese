@@ -17,6 +17,8 @@ import Resources from "./pages/Resources";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import NoteEditor from "./pages/NoteEditor";
+import StripeCheckout from "./components/StripeCheckout"; // ← ADD THIS IMPORT
+import Success from "./pages/Success"; // ← ADD THIS IMPORT
 import { supabase } from "@/utils/supabase";
 
 const queryClient = new QueryClient();
@@ -96,6 +98,15 @@ const App = () => {
             <Route
               path="/settings"
               element={session ? <Settings /> : <Navigate to="/login" />}
+            />
+            {/* ADD THESE TWO NEW ROUTES FOR STRIPE */}
+            <Route
+              path="/pricing"
+              element={session ? <StripeCheckout /> : <Navigate to="/login" />}
+            />
+            <Route
+              path="/success"
+              element={session ? <Success /> : <Navigate to="/login" />}
             />
             <Route path="*" element={<NotFound />} />
           </Routes>
