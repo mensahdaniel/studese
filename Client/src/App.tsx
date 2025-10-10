@@ -23,7 +23,7 @@ import Success from "./pages/Success";
 import { supabase } from "@/utils/supabase";
 
 const queryClient = new QueryClient();
-
+//new push
 // New component to check payment status
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const [isPaidUser, setIsPaidUser] = useState<boolean | null>(null);
