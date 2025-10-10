@@ -1,7 +1,13 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, Crown } from "lucide-react";
@@ -21,7 +27,7 @@ const Login = () => {
 
   // Auto-set to signup mode if URL has ?mode=signup
   useEffect(() => {
-    const signupMode = searchParams.get('mode') === 'signup';
+    const signupMode = searchParams.get("mode") === "signup";
     if (signupMode) {
       setIsSignUp(true);
     }
@@ -31,26 +37,26 @@ const Login = () => {
   const checkPaymentStatus = async (userId: string) => {
     try {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('is_paid')
-        .eq('id', userId)
+        .from("profiles")
+        .select("is_paid")
+        .eq("id", userId)
         .single();
 
       if (error) {
-        console.error('Error checking payment status:', error);
+        console.error("Error checking payment status:", error);
         return false;
       }
 
       return data?.is_paid || false;
     } catch (error) {
-      console.error('Error checking payment status:', error);
+      console.error("Error checking payment status:", error);
       return false;
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email || !password || (isSignUp && !username)) {
       toast({
         title: "Missing information",
@@ -61,7 +67,7 @@ const Login = () => {
     }
 
     setIsLoading(true);
-    
+
     try {
       if (isSignUp) {
         // Sign-up
@@ -73,16 +79,10 @@ const Login = () => {
           },
         });
         if (error) throw error;
-        
-        toast({
-          title: "Account created! 🎉",
-          description: "You can now subscribe to Studese Pro.",
-        });
-        
-        // Redirect to pricing page after successful signup
-        navigate("/pricing");
+
+        // Redirect to email confirmation page after successful signup
+        navigate("/email-confirmation");
         return;
-        
       } else {
         // Sign-in
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -94,7 +94,7 @@ const Login = () => {
         // CHECK PAYMENT STATUS AFTER LOGIN
         if (data.user) {
           const isPaid = await checkPaymentStatus(data.user.id);
-          
+
           if (isPaid) {
             // User has paid - go to dashboard
             toast({
@@ -106,7 +106,8 @@ const Login = () => {
             // User hasn't paid - go to pricing page
             toast({
               title: "Welcome back!",
-              description: "Please complete your subscription to access Studese Pro.",
+              description:
+                "Please complete your subscription to access Studese Pro.",
             });
             navigate("/pricing");
           }
@@ -132,19 +133,27 @@ const Login = () => {
             <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
               <span className="text-primary-foreground font-bold">SE</span>
             </div>
-            <span className="font-semibold text-2xl group-hover:text-primary transition-colors">StudEse</span>
+            <span className="font-semibold text-2xl group-hover:text-primary transition-colors">
+              StudEse
+            </span>
           </Link>
           <p className="text-muted-foreground">
-            {isSignUp ? "Create your account to get started" : "Sign in to access Studese Pro"}
+            {isSignUp
+              ? "Create your account to get started"
+              : "Sign in to access Studese Pro"}
           </p>
         </div>
 
         {/* Login/Sign-up Card */}
         <Card className="border-border">
           <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl">{isSignUp ? "Create Account" : "Welcome back 👋"}</CardTitle>
+            <CardTitle className="text-2xl">
+              {isSignUp ? "Create Account" : "Welcome back 👋"}
+            </CardTitle>
             <CardDescription>
-              {isSignUp ? "Sign up to start your journey with Studese Pro" : "Enter your credentials to access your account"}
+              {isSignUp
+                ? "Sign up to start your journey with Studese Pro"
+                : "Enter your credentials to access your account"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -173,14 +182,16 @@ const Login = () => {
                   className="w-full"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <div className="relative">
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder={isSignUp ? "Create a password" : "Enter your password"}
+                    placeholder={
+                      isSignUp ? "Create a password" : "Enter your password"
+                    }
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full pr-10"
@@ -201,19 +212,27 @@ const Login = () => {
                 </div>
               </div>
 
-              <Button 
-                type="submit" 
-                className="w-full" 
+              <Button
+                type="submit"
+                className="w-full"
                 disabled={isLoading}
                 onClick={handleSubmit}
               >
-                {isLoading ? (isSignUp ? "Creating account..." : "Signing in...") : (isSignUp ? "Create Account" : "Sign In")}
+                {isLoading
+                  ? isSignUp
+                    ? "Creating account..."
+                    : "Signing in..."
+                  : isSignUp
+                  ? "Create Account"
+                  : "Sign In"}
               </Button>
             </div>
 
             <div className="text-center space-y-4">
               <p className="text-sm text-muted-foreground">
-                {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
+                {isSignUp
+                  ? "Already have an account?"
+                  : "Don't have an account?"}{" "}
                 <Button
                   variant="link"
                   className="p-0 h-auto font-normal"
@@ -222,7 +241,7 @@ const Login = () => {
                   {isSignUp ? "Sign in" : "Sign up"}
                 </Button>
               </p>
-              
+
               {/* UPDATED MESSAGE - More accurate for paywall-first model */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <div className="flex items-center gap-2 text-blue-800 text-sm">
@@ -230,10 +249,9 @@ const Login = () => {
                   <span className="font-medium">Payment Required</span>
                 </div>
                 <p className="text-xs text-blue-600 mt-1">
-                  {isSignUp 
-                    ? "Create account → Subscribe → Access all features" 
-                    : "Login → Complete subscription → Access all features"
-                  }
+                  {isSignUp
+                    ? "Create account → Subscribe → Access all features"
+                    : "Login → Complete subscription → Access all features"}
                 </p>
               </div>
             </div>
