@@ -27,6 +27,27 @@ const Login = () => {
     }
   }, [searchParams]);
 
+  // NEW FUNCTION: Check if user has paid
+  const checkPaymentStatus = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('is_paid')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error checking payment status:', error);
+        return false;
+      }
+
+      return data?.is_paid || false;
+    } catch (error) {
+      console.error('Error checking payment status:', error);
+      return false;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -64,17 +85,32 @@ const Login = () => {
         
       } else {
         // Sign-in
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (error) throw error;
-        
-        toast({
-          title: "Welcome back! 🎉",
-          description: "You've been successfully logged in.",
-        });
-        navigate("/dashboard");
+
+        // CHECK PAYMENT STATUS AFTER LOGIN
+        if (data.user) {
+          const isPaid = await checkPaymentStatus(data.user.id);
+          
+          if (isPaid) {
+            // User has paid - go to dashboard
+            toast({
+              title: "Welcome back! 🎉",
+              description: "You've been successfully logged in.",
+            });
+            navigate("/dashboard");
+          } else {
+            // User hasn't paid - go to pricing page
+            toast({
+              title: "Welcome back!",
+              description: "Please complete your subscription to access Studese Pro.",
+            });
+            navigate("/pricing");
+          }
+        }
       }
     } catch (error: any) {
       toast({
@@ -99,7 +135,7 @@ const Login = () => {
             <span className="font-semibold text-2xl group-hover:text-primary transition-colors">StudEse</span>
           </Link>
           <p className="text-muted-foreground">
-            {isSignUp ? "Create your account to get started" : "Access your premium dashboard"}
+            {isSignUp ? "Create your account to get started" : "Sign in to access Studese Pro"}
           </p>
         </div>
 
@@ -108,7 +144,7 @@ const Login = () => {
           <CardHeader className="space-y-1 text-center">
             <CardTitle className="text-2xl">{isSignUp ? "Create Account" : "Welcome back 👋"}</CardTitle>
             <CardDescription>
-              {isSignUp ? "Sign up to start your journey with Studese Pro" : "Enter your credentials to access your premium dashboard"}
+              {isSignUp ? "Sign up to start your journey with Studese Pro" : "Enter your credentials to access your account"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -187,17 +223,19 @@ const Login = () => {
                 </Button>
               </p>
               
-              {!isSignUp && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <div className="flex items-center gap-2 text-blue-800 text-sm">
-                    <Crown className="h-4 w-4" />
-                    <span className="font-medium">Premium Access Required</span>
-                  </div>
-                  <p className="text-xs text-blue-600 mt-1">
-                    Studese is a paid service. Subscribe first, then login here.
-                  </p>
+              {/* UPDATED MESSAGE - More accurate for paywall-first model */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="flex items-center gap-2 text-blue-800 text-sm">
+                  <Crown className="h-4 w-4" />
+                  <span className="font-medium">Payment Required</span>
                 </div>
-              )}
+                <p className="text-xs text-blue-600 mt-1">
+                  {isSignUp 
+                    ? "Create account → Subscribe → Access all features" 
+                    : "Login → Complete subscription → Access all features"
+                  }
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
