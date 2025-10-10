@@ -131,21 +131,6 @@ export default function StripeCheckout() {
                   ? "Redirecting to checkout..."
                   : "Get Started with 7-Day Free Trial"}
               </Button>
-
-              <p className="text-center text-xs text-muted-foreground">
-                No credit card required for free trial. Cancel anytime.
-              </p>
-
-              {/* Test Card Info */}
-              <div className="mt-4 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                <p className="text-sm font-semibold text-yellow-800 mb-1">
-                  Test Card:
-                </p>
-                <p className="text-sm text-yellow-700">4242 4242 4242 4242</p>
-                <p className="text-xs text-yellow-600">
-                  Any future date, CVC, ZIP
-                </p>
-              </div>
             </CardContent>
           </Card>
         </div>
