@@ -39,7 +39,7 @@ export default function StripeCheckout() {
           body: JSON.stringify({
             userId: user.id,
             userEmail: user.email,
-            priceId: "price_1SFHKoDu5SBC5lwjyUNm74Yv",
+            priceId: "price_1SH7EMDu5SBC5lwj9cB3yLtz",
             // ✅ USES CONFIG INSTEAD OF HARDCODED URL
             successUrl: `${BASE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
             cancelUrl: `${BASE_URL}/pricing`,
