@@ -262,13 +262,13 @@ const Login = () => {
 
         <p className="text-center text-xs text-muted-foreground">
           By {isSignUp ? "signing up" : "signing in"}, you agree to our{" "}
-          <Button variant="link" className="p-0 h-auto text-xs font-normal">
+          <Link to="/terms" className="text-blue-600 hover:underline text-xs font-normal">
             Terms of Service
-          </Button>{" "}
+          </Link>{" "}
           and{" "}
-          <Button variant="link" className="p-0 h-auto text-xs font-normal">
+          <Link to="/privacy" className="text-blue-600 hover:underline text-xs font-normal">
             Privacy Policy
-          </Button>
+          </Link>
         </p>
       </div>
     </div>
