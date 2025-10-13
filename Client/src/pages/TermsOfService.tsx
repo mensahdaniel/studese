@@ -1,8 +1,8 @@
-import Layout from "@/components/Layout";
+import SimpleLayout from "@/components/SimpleLayout";
 
 export default function TermsOfService() {
   return (
-    <Layout>
+    <SimpleLayout>
       <div className="min-h-screen bg-gray-50 py-12">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-white rounded-lg shadow-md p-8">
@@ -80,6 +80,6 @@ export default function TermsOfService() {
           </div>
         </div>
       </div>
-    </Layout>
+    </SimpleLayout>
   );
 }
