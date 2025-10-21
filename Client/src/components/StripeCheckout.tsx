@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/card";
 import { Check, Crown } from "lucide-react";
 import { supabase } from "@/utils/supabase";
-import { BASE_URL } from "@/config";
 
 export default function StripeCheckout() {
   const [loading, setLoading] = useState(false);
@@ -29,6 +28,10 @@ export default function StripeCheckout() {
 
       console.log("Starting annual subscription for:", user.email);
 
+      // ✅ CRITICAL FIX: Use window.location.origin to guarantee correct URL
+      const currentOrigin = window.location.origin;
+      console.log("Current origin:", currentOrigin);
+
       const response = await fetch(
         "https://yfkgyamxfescwqqbmtel.supabase.co/functions/v1/create-checkout-session",
         {
@@ -40,9 +43,9 @@ export default function StripeCheckout() {
             userId: user.id,
             userEmail: user.email,
             priceId: "price_1SH7EMDu5SBC5lwj9cB3yLtz",
-            // ✅ USES CONFIG INSTEAD OF HARDCODED URL
-            successUrl: `${BASE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-            cancelUrl: `${BASE_URL}/pricing`,
+            // ✅ FIXED: Use dynamic origin instead of BASE_URL
+            successUrl: `${currentOrigin}/success?session_id={CHECKOUT_SESSION_ID}`,
+            cancelUrl: `${currentOrigin}/pricing`,
           }),
         }
       );

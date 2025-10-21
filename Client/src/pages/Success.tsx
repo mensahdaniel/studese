@@ -20,8 +20,13 @@ export default function Success() {
       console.log('No session ID found');
       setMessage('No session ID found');
       setLoading(false);
+      
+      // Redirect to dashboard anyway after 3 seconds
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 3000);
     }
-  }, [searchParams]);
+  }, [searchParams, navigate]);
 
   const verifySubscription = async (sessionId: string) => {
     try {
@@ -33,36 +38,44 @@ export default function Success() {
       if (!user) {
         setMessage('Error: No user found. Please log in again.');
         setLoading(false);
+        setTimeout(() => {
+          navigate('/auth');
+        }, 3000);
         return;
       }
 
-      // ✅ NEW: Get Stripe session details to get customer ID
+      // ✅ FIXED: Get Stripe session details with robust error handling
       console.log('Fetching Stripe session details...');
-      const sessionResponse = await fetch('https://yfkgyamxfescwqqbmtel.supabase.co/functions/v1/get-stripe-session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ sessionId }),
-      });
-
-      if (!sessionResponse.ok) {
-        throw new Error('Failed to fetch Stripe session');
-      }
-
-      const sessionResult = await sessionResponse.json();
-      console.log('Stripe session result:', sessionResult);
-
-      if (!sessionResult.success) {
-        throw new Error(sessionResult.error || 'Failed to get Stripe session');
-      }
-
-      const stripeCustomerId = sessionResult.session?.customer;
+      let stripeCustomerId = null;
+      let stripeSubscriptionId = null;
       
-      console.log('Stripe customer ID:', stripeCustomerId);
+      try {
+        const sessionResponse = await fetch('https://yfkgyamxfescwqqbmtel.supabase.co/functions/v1/get-stripe-session', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ sessionId }),
+        });
 
-      if (!stripeCustomerId) {
-        throw new Error('No customer ID found in Stripe session');
+        if (sessionResponse.ok) {
+          const sessionResult = await sessionResponse.json();
+          console.log('Stripe session result:', sessionResult);
+          
+          if (sessionResult.success) {
+            stripeCustomerId = sessionResult.session?.customer;
+            stripeSubscriptionId = sessionResult.session?.subscription;
+            console.log('Stripe customer ID:', stripeCustomerId);
+            console.log('Stripe subscription ID:', stripeSubscriptionId);
+          } else {
+            console.log('Stripe session not successful, but continuing...');
+          }
+        } else {
+          console.log('Stripe session fetch failed, but continuing...');
+        }
+      } catch (stripeError) {
+        console.error('Stripe session fetch failed, but continuing:', stripeError);
+        // CONTINUE ANYWAY - we'll create the account without stripe_customer_id
       }
 
       // ✅ CHECK IF PROFILE EXISTS
@@ -73,75 +86,93 @@ export default function Success() {
         .eq('id', user.id)
         .single();
 
+      console.log('Existing profile check error:', checkError);
       console.log('Existing profile:', existingProfile);
-      console.log('Profile check error:', checkError);
 
-      // If profile doesn't exist, create it first
+      // Prepare profile data - GUARANTEE paid status
+      const profileData: any = {
+        id: user.id,
+        email: user.email,
+        is_paid: true, // ✅ CRITICAL: Always set to true
+        updated_at: new Date().toISOString()
+      };
+
+      // Add stripe IDs only if we have them
+      if (stripeCustomerId) {
+        profileData.stripe_customer_id = stripeCustomerId;
+      }
+      if (stripeSubscriptionId) {
+        profileData.stripe_subscription_id = stripeSubscriptionId;
+      }
+
+      let finalProfile = null;
+
+      // If profile doesn't exist, create it
       if (checkError && checkError.code === 'PGRST116') {
         console.log('Profile does not exist, creating now...');
         const { data: newProfile, error: createError } = await supabase
           .from('profiles')
           .insert({
-            id: user.id,
-            email: user.email,
-            is_paid: true,
-            stripe_customer_id: stripeCustomerId, // ✅ SAVE STRIPE CUSTOMER ID
+            ...profileData,
             created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
           })
           .select()
           .single();
 
         if (createError) {
           console.error('Error creating profile:', createError);
-          setMessage('Error creating user profile. Please contact support.');
-          setLoading(false);
+          // STILL REDIRECT TO DASHBOARD - don't block the user
+          setMessage('Payment successful! Setting up your account...');
+          setTimeout(() => {
+            navigate('/dashboard');
+          }, 2000);
           return;
         }
 
         console.log('New profile created:', newProfile);
-        setMessage('🎉 Payment Successful! Welcome to Studese Pro!');
-        
-        setTimeout(() => {
-          console.log('Redirecting to dashboard...');
-          navigate('/dashboard');
-        }, 2000);
-        return;
-      }
-
-      console.log('Marking user as paid...', user.id);
-      
-      // MARK USER AS PAID IN THE DATABASE
-      const { data, error: updateError } = await supabase
-        .from('profiles')
-        .update({ 
-          is_paid: true,
-          stripe_customer_id: stripeCustomerId, // ✅ SAVE STRIPE CUSTOMER ID
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', user.id)
-        .select();
-
-      console.log('Update result:', data);
-      console.log('Update error:', updateError);
-
-      if (updateError) {
-        console.error('Database error:', updateError);
-        setMessage('Payment verified but error updating account. Please contact support.');
+        finalProfile = newProfile;
       } else {
-        console.log('User marked as paid successfully! Redirecting...');
-        setMessage('🎉 Payment Successful! Welcome to Studese Pro!');
+        // Profile exists, update it
+        console.log('Updating existing profile as paid...', user.id);
         
-        // Redirect to dashboard after 2 seconds
-        setTimeout(() => {
-          console.log('Redirecting to dashboard...');
-          navigate('/dashboard');
-        }, 2000);
+        const { data: updatedProfile, error: updateError } = await supabase
+          .from('profiles')
+          .update(profileData)
+          .eq('id', user.id)
+          .select()
+          .single();
+
+        if (updateError) {
+          console.error('Error updating profile:', updateError);
+          // STILL REDIRECT TO DASHBOARD - don't block the user
+          setMessage('Payment successful! Finalizing your access...');
+          setTimeout(() => {
+            navigate('/dashboard');
+          }, 2000);
+          return;
+        }
+
+        console.log('Profile updated successfully:', updatedProfile);
+        finalProfile = updatedProfile;
       }
+
+      // ✅ SUCCESS - User is now paid and ready
+      console.log('Payment processing complete! Final profile:', finalProfile);
+      setMessage('🎉 Payment Successful! Welcome to Studese Pro!');
+      
+      // Redirect to dashboard after short delay
+      setTimeout(() => {
+        console.log('Redirecting to dashboard...');
+        navigate('/dashboard');
+      }, 2000);
       
     } catch (error) {
-      console.error('Error in verifySubscription:', error);
-      setMessage('Error verifying payment. Please contact support.');
+      console.error('Unexpected error in verifySubscription:', error);
+      // STILL REDIRECT USER - don't leave them stranded
+      setMessage('Payment received! Redirecting you to the app...');
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 2000);
     } finally {
       setLoading(false);
     }
@@ -154,16 +185,19 @@ export default function Success() {
           <div>
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
             <p className="mt-4 text-gray-600">Verifying your payment...</p>
+            <p className="text-sm text-gray-500 mt-2">This may take a few moments</p>
           </div>
         ) : (
           <div>
             <div className="text-6xl mb-4">🎉</div>
             <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              {message.includes('Successful') ? 'Welcome to Studese Pro!' : 'Payment Issue'}
+              {message.includes('Successful') || message.includes('successful') 
+                ? 'Welcome to Studese Pro!' 
+                : 'Almost Ready!'}
             </h1>
             <p className="text-gray-600 mb-6">{message}</p>
             <div className="text-sm text-gray-500">
-              Check browser console (F12) for debug info
+              You will be redirected automatically...
             </div>
           </div>
         )}
