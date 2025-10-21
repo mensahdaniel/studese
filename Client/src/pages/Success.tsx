@@ -36,6 +36,35 @@ export default function Success() {
         return;
       }
 
+      // ✅ NEW: Get Stripe session details to get customer ID
+      console.log('Fetching Stripe session details...');
+      const sessionResponse = await fetch('https://yfkgyamxfescwqqbmtel.supabase.co/functions/v1/get-stripe-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ sessionId }),
+      });
+
+      if (!sessionResponse.ok) {
+        throw new Error('Failed to fetch Stripe session');
+      }
+
+      const sessionResult = await sessionResponse.json();
+      console.log('Stripe session result:', sessionResult);
+
+      if (!sessionResult.success) {
+        throw new Error(sessionResult.error || 'Failed to get Stripe session');
+      }
+
+      const stripeCustomerId = sessionResult.session?.customer;
+      
+      console.log('Stripe customer ID:', stripeCustomerId);
+
+      if (!stripeCustomerId) {
+        throw new Error('No customer ID found in Stripe session');
+      }
+
       // ✅ CHECK IF PROFILE EXISTS
       console.log('Checking if profile exists...');
       const { data: existingProfile, error: checkError } = await supabase
@@ -56,6 +85,7 @@ export default function Success() {
             id: user.id,
             email: user.email,
             is_paid: true,
+            stripe_customer_id: stripeCustomerId, // ✅ SAVE STRIPE CUSTOMER ID
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           })
@@ -86,6 +116,7 @@ export default function Success() {
         .from('profiles')
         .update({ 
           is_paid: true,
+          stripe_customer_id: stripeCustomerId, // ✅ SAVE STRIPE CUSTOMER ID
           updated_at: new Date().toISOString()
         })
         .eq('id', user.id)

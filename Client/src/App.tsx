@@ -20,18 +20,34 @@ import NotFound from "./pages/NotFound";
 import NoteEditor from "./pages/NoteEditor";
 import StripeCheckout from "./components/StripeCheckout";
 import Success from "./pages/Success";
+import TermsOfService from "./pages/TermsOfService";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import Support from "./pages/Support"; //  ADD THIS IMPORT
 import { supabase } from "@/utils/supabase";
 
 const queryClient = new QueryClient();
-//new push
-// New component to check payment status
+
+// Updated component to check payment status with development bypass
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const [isPaidUser, setIsPaidUser] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Check if we're in development mode
+  const isDevelopment = process.env.NODE_ENV === 'development' || 
+                       window.location.hostname === 'localhost' || 
+                       window.location.hostname === '127.0.0.1';
+
   useEffect(() => {
     const checkPaymentStatus = async () => {
       try {
+        //  DEVELOPMENT BYPASS: Skip payment checks on localhost
+        if (isDevelopment) {
+          console.log('🔓 Development mode: Bypassing payment check');
+          setIsPaidUser(true);
+          setIsLoading(false);
+          return;
+        }
+
         const {
           data: { user },
         } = await supabase.auth.getUser();
@@ -42,7 +58,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
           return;
         }
 
-        // Check if user has paid status in database
+        // Check if user has paid status in database (PRODUCTION ONLY)
         const { data, error } = await supabase
           .from("profiles") // or whatever your user table is called
           .select("is_paid")
@@ -64,7 +80,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     };
 
     checkPaymentStatus();
-  }, []);
+  }, [isDevelopment]); // Add isDevelopment as dependency
 
   if (isLoading) {
     return (
@@ -74,8 +90,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  // If user hasn't paid, redirect to pricing page
-  if (!isPaidUser) {
+  //  DEVELOPMENT BYPASS: Allow access without payment
+  if (!isPaidUser && !isDevelopment) {
     return <Navigate to="/pricing" replace />;
   }
 
@@ -130,6 +146,10 @@ const App = () => {
               element={session ? <Navigate to="/pricing" /> : <Login />}
             />
             <Route path="/email-confirmation" element={<EmailConfirmation />} />
+            
+            {/* Public legal routes */}
+            <Route path="/terms" element={<TermsOfService />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
 
             {/* Payment required route - users must pay before accessing app */}
             <Route
@@ -246,6 +266,20 @@ const App = () => {
                 session ? (
                   <ProtectedRoute>
                     <Settings />
+                  </ProtectedRoute>
+                ) : (
+                  <Navigate to="/login" />
+                )
+              }
+            />
+            
+            {/*  ADD SUPPORT ROUTE */}
+            <Route
+              path="/support"
+              element={
+                session ? (
+                  <ProtectedRoute>
+                    <Support />
                   </ProtectedRoute>
                 ) : (
                   <Navigate to="/login" />

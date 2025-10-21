@@ -5,9 +5,92 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import ThemeToggle from "@/components/ThemeToggle";
-import { User, Bell, Shield, Palette, Database } from "lucide-react";
+import { User, Bell, Shield, Palette, Database, CreditCard, Calendar } from "lucide-react";
+import { useState } from "react";
+import { supabase } from "@/utils/supabase";
+import { useToast } from "@/hooks/use-toast";
 
 const Settings = () => {
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+
+  const handleManageSubscription = async () => {
+    setLoading(true);
+    try {
+      // ✅ DEVELOPMENT BYPASS
+      const isDevelopment = process.env.NODE_ENV === 'development' || 
+                           window.location.hostname === 'localhost' || 
+                           window.location.hostname === '127.0.0.1';
+
+      if (isDevelopment) {
+        console.log('🔓 Development mode: Subscription management bypassed');
+        toast({ 
+          title: "Development Mode", 
+          description: "Subscription management is disabled in development. In production, this would redirect to Stripe billing portal.", 
+        });
+        return;
+      }
+
+      // PRODUCTION CODE (only runs in production)
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({ title: "Error", description: "Please log in first.", variant: "destructive" });
+        return;
+      }
+
+      console.log('🔄 Starting subscription management for user:', user.id);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No authentication token found');
+      }
+
+      console.log('🔐 Got auth token, calling Edge Function...');
+      const response = await fetch('https://yfkgyamxfescwqqbmtel.supabase.co/functions/v1/create-customer-portal', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          returnUrl: `${window.location.origin}/settings`
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ HTTP Error:', response.status, errorText);
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('📦 Response from Edge Function:', result);
+
+      if (!result.success) {
+        console.error('❌ Edge Function error:', result.error);
+        throw new Error(result.error || 'Failed to create billing portal session');
+      }
+
+      if (!result.url) {
+        console.error('❌ No URL in response:', result);
+        throw new Error('No portal URL received from server');
+      }
+
+      console.log('✅ Redirecting to Stripe portal:', result.url);
+      window.location.href = result.url;
+        
+    } catch (error: any) {
+      console.error('💥 Error in handleManageSubscription:', error);
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to open billing portal. Please try again later.", 
+        variant: "destructive" 
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Layout>
       <div className="p-6 max-w-4xl mx-auto space-y-6">
@@ -19,6 +102,46 @@ const Settings = () => {
         </div>
 
         <div className="grid gap-6">
+          {/* ✅ ADDED: Subscription & Billing */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center space-x-2">
+                <CreditCard className="h-5 w-5" />
+                <CardTitle>Subscription & Billing</CardTitle>
+              </div>
+              <CardDescription>
+                Manage your subscription, payment methods, and billing information
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <p className="font-medium">Studese Pro</p>
+                  <p className="text-sm text-muted-foreground">Yearly subscription - $6.99/year</p>
+                </div>
+                <Button 
+                  onClick={handleManageSubscription}
+                  disabled={loading}
+                  variant="outline"
+                >
+                  {loading ? "Loading..." : "Manage Subscription"}
+                </Button>
+              </div>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <Calendar className="h-5 w-5 text-blue-600 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-blue-800">Subscription Management</p>
+                    <p className="text-sm text-blue-600 mt-1">
+                      Update your payment method, download invoices, or cancel your subscription through our secure billing portal.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Appearance */}
           <Card>
             <CardHeader>
