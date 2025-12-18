@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Analytics } from '@vercel/analytics/react';
+import { initMobileApp, isNativePlatform } from "@/utils/mobile";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -32,7 +33,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     const checkPaymentStatus = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        
+
         if (!user) {
           setIsPaidUser(false);
           setIsLoading(false);
@@ -84,6 +85,9 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Initialize mobile app features (Capacitor)
+    initMobileApp();
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -116,14 +120,15 @@ const App = () => {
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          {/* Add viewport meta for mobile if running as native app */}
           <Routes>
             {/* Public routes */}
             <Route path="/" element={session ? <Navigate to="/dashboard" /> : <Landing />} />
             <Route path="/login" element={session ? <Navigate to="/pricing" /> : <Login />} />
-            
+
             {/* Payment required route - users must pay before accessing app */}
             <Route path="/pricing" element={session ? <StripeCheckout /> : <Navigate to="/login" />} />
-            
+
             {/* Success page - after payment */}
             <Route path="/success" element={session ? <Success /> : <Navigate to="/login" />} />
 
