@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { StyleSheet, View, BackHandler, Platform, ActivityIndicator, Linking, AppState, AppStateStatus } from 'react-native';
+import { StyleSheet, View, BackHandler, Platform, Linking, AppState, AppStateStatus, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { WebView, WebViewNavigation } from 'react-native-webview';
-import * as SplashScreen from 'expo-splash-screen';
+import * as ExpoSplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
 import {
@@ -12,9 +12,10 @@ import {
   removeNotificationListener,
   sendTestNotification,
 } from './services/pushNotifications';
+import SplashScreen from './components/SplashScreen';
 
-// Keep splash screen visible while loading
-SplashScreen.preventAutoHideAsync();
+// Keep native splash screen visible while loading
+ExpoSplashScreen.preventAutoHideAsync();
 
 const STUDESE_URL = 'https://studese.com';
 
@@ -43,10 +44,28 @@ export default function App() {
   const webViewRef = useRef<WebView>(null);
   const [canGoBack, setCanGoBack] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [showSplash, setShowSplash] = useState(true);
+  const [webViewReady, setWebViewReady] = useState(false);
+  const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
   const notificationListener = useRef<Notifications.Subscription | null>(null);
   const responseListener = useRef<Notifications.Subscription | null>(null);
   const appState = useRef(AppState.currentState);
+
+  // Hide splash when both WebView is ready and animation is complete
+  useEffect(() => {
+    if (webViewReady && splashAnimationComplete) {
+      // Small delay for smoother transition
+      const timeout = setTimeout(() => {
+        setShowSplash(false);
+      }, 300);
+      return () => clearTimeout(timeout);
+    }
+  }, [webViewReady, splashAnimationComplete]);
+
+  const handleSplashAnimationComplete = useCallback(() => {
+    setSplashAnimationComplete(true);
+  }, []);
 
   // Register for push notifications on mount
   useEffect(() => {
@@ -170,7 +189,10 @@ export default function App() {
 
   const handleLoadEnd = useCallback(async () => {
     setIsLoading(false);
-    await SplashScreen.hideAsync();
+    setWebViewReady(true);
+
+    // Hide the native splash screen (our custom one will still show)
+    await ExpoSplashScreen.hideAsync();
 
     // Send push token to WebView after load
     if (expoPushToken && webViewRef.current) {
@@ -391,6 +413,13 @@ export default function App() {
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <StatusBar style="light" backgroundColor="#121212" />
 
+        {/* Custom Studese Splash Screen */}
+        {showSplash && (
+          <View style={styles.splashContainer}>
+            <SplashScreen onAnimationComplete={handleSplashAnimationComplete} />
+          </View>
+        )}
+
         <WebView
           ref={webViewRef}
           source={{ uri: STUDESE_URL }}
@@ -427,12 +456,7 @@ export default function App() {
           }}
         />
 
-        {/* Loading overlay */}
-        {isLoading && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#5B9BF3" />
-          </View>
-        )}
+
       </SafeAreaView>
     </SafeAreaProvider>
   );
@@ -447,17 +471,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#121212',
   },
-  loadingContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#121212',
+  splashContainer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 100,
   },
-  loadingOverlay: {
+  loadingContainer: {
     position: 'absolute',
     top: 0,
     left: 0,

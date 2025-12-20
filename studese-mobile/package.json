@@ -13,6 +13,7 @@
     "expo": "~54.0.27",
     "expo-constants": "^18.0.12",
     "expo-device": "^8.0.10",
+    "expo-linear-gradient": "^15.0.8",
     "expo-notifications": "^0.32.15",
     "expo-splash-screen": "~31.0.12",
     "expo-status-bar": "~3.0.9",
