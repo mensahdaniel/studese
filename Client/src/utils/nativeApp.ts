@@ -1,33 +1,38 @@
 /**
  * Native App Bridge
- * Provides communication between the web app and the React Native WebView
- * for push notifications and other native features.
+ * Re-exports mobile utilities and adds notification-specific types and helpers
+ * for React Native WebView integration.
  */
 
-// Extend the Window interface for TypeScript
-declare global {
-  interface Window {
-    StudeseNative?: {
-      isNativeApp: boolean;
-      platform: 'ios' | 'android';
-      pushToken: string | null;
-      testNotification: () => void;
-      scheduleNotification: (
-        title: string,
-        body: string,
-        data?: Record<string, unknown>,
-        delaySeconds?: number
-      ) => void;
-      cancelAllNotifications: () => void;
-      getPushToken: () => string | null;
-      registerPushToken: (userId: string) => void;
-    };
-    ReactNativeWebView?: {
-      postMessage: (message: string) => void;
-    };
-  }
-}
+// Re-export everything from mobile.ts
+export {
+  isNativePlatform,
+  isExpoWebView,
+  isCapacitor,
+  getPlatform,
+  isIOS,
+  isAndroid,
+  getPushToken,
+  sendTestNotification,
+  scheduleNotification,
+  cancelAllNotifications,
+  registerPushToken,
+  postMessageToNative,
+  initMobileApp,
+  getSafeAreaInsets,
+  getMobilePaddingClasses,
+  vibrate,
+  openExternalUrl,
+  hasNotch,
+} from "./mobile";
 
+// Import for internal use
+import { scheduleNotification as scheduleNotificationFn, isExpoWebView, getPlatform } from "./mobile";
+
+// Alias for backwards compatibility
+export { isExpoWebView as isNativeApp } from "./mobile";
+
+// Types for notification events
 export interface NativeNotification {
   title: string;
   body: string;
@@ -36,64 +41,7 @@ export interface NativeNotification {
 
 export interface PushTokenEvent {
   token: string;
-  platform: 'ios' | 'android';
-}
-
-/**
- * Check if the app is running inside the native mobile app
- */
-export function isNativeApp(): boolean {
-  return !!window.StudeseNative?.isNativeApp;
-}
-
-/**
- * Get the platform (ios/android) if running in native app
- */
-export function getNativePlatform(): 'ios' | 'android' | null {
-  return window.StudeseNative?.platform || null;
-}
-
-/**
- * Get the push token if available
- */
-export function getPushToken(): string | null {
-  return window.StudeseNative?.pushToken || null;
-}
-
-/**
- * Send a test notification (for development purposes)
- */
-export function sendTestNotification(): void {
-  if (window.StudeseNative?.testNotification) {
-    window.StudeseNative.testNotification();
-  } else {
-    console.warn('Native app bridge not available');
-  }
-}
-
-/**
- * Schedule a local notification
- * @param title - Notification title
- * @param body - Notification body text
- * @param data - Optional data payload (used for navigation when tapped)
- * @param delaySeconds - Optional delay in seconds (0 = immediate)
- */
-export function scheduleNotification(
-  title: string,
-  body: string,
-  data?: Record<string, unknown>,
-  delaySeconds?: number
-): void {
-  if (window.StudeseNative?.scheduleNotification) {
-    window.StudeseNative.scheduleNotification(title, body, data, delaySeconds);
-  } else {
-    // Fallback to browser notifications if available
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification(title, { body });
-    } else {
-      console.warn('Native app bridge not available, and browser notifications not permitted');
-    }
-  }
+  platform: "ios" | "android";
 }
 
 /**
@@ -104,10 +52,10 @@ export function scheduleTaskReminder(
   taskId: string,
   delaySeconds: number
 ): void {
-  scheduleNotification(
-    '⏰ Task Reminder',
+  scheduleNotificationFn(
+    "⏰ Task Reminder",
     `Don't forget: ${taskTitle}`,
-    { type: 'task_reminder', taskId, route: '/tasks' },
+    { type: "task_reminder", taskId, route: "/tasks" },
     delaySeconds
   );
 }
@@ -120,31 +68,12 @@ export function scheduleEventReminder(
   eventId: string,
   delaySeconds: number
 ): void {
-  scheduleNotification(
-    '📅 Event Starting Soon',
+  scheduleNotificationFn(
+    "📅 Event Starting Soon",
     eventTitle,
-    { type: 'event_reminder', eventId, route: '/events' },
+    { type: "event_reminder", eventId, route: "/events" },
     delaySeconds
   );
-}
-
-/**
- * Cancel all scheduled notifications
- */
-export function cancelAllNotifications(): void {
-  if (window.StudeseNative?.cancelAllNotifications) {
-    window.StudeseNative.cancelAllNotifications();
-  }
-}
-
-/**
- * Register the push token with the backend
- * Call this after the user logs in
- */
-export function registerPushTokenWithServer(userId: string): void {
-  if (window.StudeseNative?.registerPushToken) {
-    window.StudeseNative.registerPushToken(userId);
-  }
 }
 
 /**
@@ -159,10 +88,10 @@ export function onPushTokenReceived(
     callback(e.detail);
   };
 
-  window.addEventListener('pushTokenReceived', handler as EventListener);
+  window.addEventListener("pushTokenReceived", handler as EventListener);
 
   return () => {
-    window.removeEventListener('pushTokenReceived', handler as EventListener);
+    window.removeEventListener("pushTokenReceived", handler as EventListener);
   };
 }
 
@@ -178,10 +107,10 @@ export function onNotificationReceived(
     callback(e.detail);
   };
 
-  window.addEventListener('notificationReceived', handler as EventListener);
+  window.addEventListener("notificationReceived", handler as EventListener);
 
   return () => {
-    window.removeEventListener('notificationReceived', handler as EventListener);
+    window.removeEventListener("notificationReceived", handler as EventListener);
   };
 }
 
@@ -197,10 +126,10 @@ export function onNotificationTapped(
     callback(e.detail);
   };
 
-  window.addEventListener('notificationTapped', handler as EventListener);
+  window.addEventListener("notificationTapped", handler as EventListener);
 
   return () => {
-    window.removeEventListener('notificationTapped', handler as EventListener);
+    window.removeEventListener("notificationTapped", handler as EventListener);
   };
 }
 
@@ -210,7 +139,6 @@ export function onNotificationTapped(
  * @returns Cleanup function to remove listener
  */
 export function onAppForeground(callback: () => void): () => void {
-  // The native app will call window.onAppForeground
   (window as unknown as { onAppForeground?: () => void }).onAppForeground = callback;
 
   return () => {
@@ -219,69 +147,36 @@ export function onAppForeground(callback: () => void): () => void {
 }
 
 /**
- * Initialize native app features
+ * Initialize native app features and listeners
  * Call this once when the app starts
  */
 export function initNativeAppBridge(): void {
-  if (!isNativeApp()) {
-    console.log('Not running in native app, native bridge not initialized');
+  if (!isExpoWebView()) {
+    console.log("Not running in native app, native bridge not initialized");
     return;
   }
 
-  console.log(`Native app detected: ${getNativePlatform()}`);
+  console.log(`Native app detected: ${getPlatform()}`);
 
   // Set up notification tap handler for navigation
   onNotificationTapped((notification) => {
-    console.log('Notification tapped:', notification);
+    console.log("Notification tapped:", notification);
 
     // Handle navigation based on notification data
     const data = notification.data;
-    if (data?.route && typeof data.route === 'string') {
-      // Navigate to the specified route
+    if (data?.route && typeof data.route === "string") {
       window.location.href = data.route;
     }
   });
 }
 
-/**
- * React hook for using push token
- * Use this in your app component to get and register the push token
- */
-export function usePushToken(
-  userId: string | null,
-  onTokenReceived?: (token: string) => void
-): string | null {
-  // This is a simplified version - in actual use, you'd use useState and useEffect
-  // to properly manage the token state
-
-  if (typeof window === 'undefined') return null;
-
-  const token = getPushToken();
-
-  // If we have both token and userId, we can register
-  if (token && userId) {
-    registerPushTokenWithServer(userId);
-    onTokenReceived?.(token);
-  }
-
-  return token;
-}
-
 // Export default object with all functions
 export default {
-  isNativeApp,
-  getNativePlatform,
-  getPushToken,
-  sendTestNotification,
-  scheduleNotification,
   scheduleTaskReminder,
   scheduleEventReminder,
-  cancelAllNotifications,
-  registerPushTokenWithServer,
   onPushTokenReceived,
   onNotificationReceived,
   onNotificationTapped,
   onAppForeground,
   initNativeAppBridge,
-  usePushToken,
 };

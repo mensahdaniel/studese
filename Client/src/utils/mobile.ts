@@ -1,35 +1,172 @@
-import { Capacitor } from '@capacitor/core';
-import { App } from '@capacitor/app';
-import { StatusBar, Style } from '@capacitor/status-bar';
-import { SplashScreen } from '@capacitor/splash-screen';
-import { Keyboard } from '@capacitor/keyboard';
+/**
+ * Mobile App Utilities
+ * Supports both Capacitor and Expo WebView environments
+ */
+
+// Extend Window interface for native app bridges
+declare global {
+  interface Window {
+    // Expo WebView bridge
+    StudeseNative?: {
+      isNativeApp: boolean;
+      platform: 'ios' | 'android';
+      pushToken: string | null;
+      testNotification: () => void;
+      scheduleNotification: (
+        title: string,
+        body: string,
+        data?: Record<string, unknown>,
+        delaySeconds?: number
+      ) => void;
+      cancelAllNotifications: () => void;
+      getPushToken: () => string | null;
+      registerPushToken: (userId: string) => void;
+    };
+    // React Native WebView postMessage
+    ReactNativeWebView?: {
+      postMessage: (message: string) => void;
+    };
+    // Capacitor bridge
+    Capacitor?: {
+      isNativePlatform: () => boolean;
+      getPlatform: () => string;
+    };
+  }
+}
 
 /**
- * Check if the app is running on a native platform (iOS/Android)
+ * Check if running in Expo WebView (studese-mobile app)
+ */
+export const isExpoWebView = (): boolean => {
+  return !!window.StudeseNative?.isNativeApp || !!window.ReactNativeWebView;
+};
+
+/**
+ * Check if running in Capacitor
+ */
+export const isCapacitor = (): boolean => {
+  return !!window.Capacitor?.isNativePlatform?.();
+};
+
+/**
+ * Check if the app is running on any native platform (iOS/Android)
+ * Works with both Capacitor and Expo WebView
  */
 export const isNativePlatform = (): boolean => {
-  return Capacitor.isNativePlatform();
+  return isExpoWebView() || isCapacitor();
 };
 
 /**
  * Get the current platform
  */
 export const getPlatform = (): 'ios' | 'android' | 'web' => {
-  return Capacitor.getPlatform() as 'ios' | 'android' | 'web';
+  // Check Expo WebView first
+  if (window.StudeseNative?.platform) {
+    return window.StudeseNative.platform;
+  }
+
+  // Check Capacitor
+  if (window.Capacitor?.getPlatform) {
+    const platform = window.Capacitor.getPlatform();
+    if (platform === 'ios' || platform === 'android') {
+      return platform;
+    }
+  }
+
+  // Fallback: detect from user agent
+  const ua = navigator.userAgent.toLowerCase();
+  if (/iphone|ipad|ipod/.test(ua)) {
+    return 'ios';
+  }
+  if (/android/.test(ua)) {
+    return 'android';
+  }
+
+  return 'web';
 };
 
 /**
  * Check if running on iOS
  */
 export const isIOS = (): boolean => {
-  return Capacitor.getPlatform() === 'ios';
+  return getPlatform() === 'ios';
 };
 
 /**
  * Check if running on Android
  */
 export const isAndroid = (): boolean => {
-  return Capacitor.getPlatform() === 'android';
+  return getPlatform() === 'android';
+};
+
+/**
+ * Get the push token if available (Expo WebView only)
+ */
+export const getPushToken = (): string | null => {
+  return window.StudeseNative?.pushToken || null;
+};
+
+/**
+ * Send a test notification (Expo WebView only)
+ */
+export const sendTestNotification = (): void => {
+  if (window.StudeseNative?.testNotification) {
+    window.StudeseNative.testNotification();
+  } else {
+    console.warn('Test notifications require the native app');
+  }
+};
+
+/**
+ * Schedule a local notification (Expo WebView only)
+ */
+export const scheduleNotification = (
+  title: string,
+  body: string,
+  data?: Record<string, unknown>,
+  delaySeconds?: number
+): void => {
+  if (window.StudeseNative?.scheduleNotification) {
+    window.StudeseNative.scheduleNotification(title, body, data, delaySeconds);
+  } else if ('Notification' in window && Notification.permission === 'granted') {
+    // Fallback to browser notifications
+    if (delaySeconds && delaySeconds > 0) {
+      setTimeout(() => {
+        new Notification(title, { body });
+      }, delaySeconds * 1000);
+    } else {
+      new Notification(title, { body });
+    }
+  } else {
+    console.warn('Notifications not available in this environment');
+  }
+};
+
+/**
+ * Cancel all scheduled notifications (Expo WebView only)
+ */
+export const cancelAllNotifications = (): void => {
+  if (window.StudeseNative?.cancelAllNotifications) {
+    window.StudeseNative.cancelAllNotifications();
+  }
+};
+
+/**
+ * Register push token with server (Expo WebView only)
+ */
+export const registerPushToken = (userId: string): void => {
+  if (window.StudeseNative?.registerPushToken) {
+    window.StudeseNative.registerPushToken(userId);
+  }
+};
+
+/**
+ * Post a message to the native app (Expo WebView)
+ */
+export const postMessageToNative = (type: string, data?: Record<string, unknown>): void => {
+  if (window.ReactNativeWebView?.postMessage) {
+    window.ReactNativeWebView.postMessage(JSON.stringify({ type, ...data }));
+  }
 };
 
 /**
@@ -38,153 +175,83 @@ export const isAndroid = (): boolean => {
  */
 export const initMobileApp = async (): Promise<void> => {
   if (!isNativePlatform()) {
+    console.log('Running in web browser');
     return;
   }
 
+  const platform = getPlatform();
+  const isExpo = isExpoWebView();
+
+  console.log(`Mobile app initialized: ${platform} (${isExpo ? 'Expo' : 'Capacitor'})`);
+
+  // Set up event listeners for native app events
+  if (isExpo) {
+    setupExpoListeners();
+  }
+
+  // Add mobile-specific CSS class to body
+  document.body.classList.add('native-app');
+  document.body.classList.add(`platform-${platform}`);
+};
+
+/**
+ * Set up listeners for Expo WebView events
+ */
+const setupExpoListeners = (): void => {
+  // Listen for messages from native app
+  window.addEventListener('message', handleNativeMessage);
+
+  // Listen for push token
+  window.addEventListener('pushTokenReceived', ((event: CustomEvent) => {
+    console.log('Push token received:', event.detail?.token);
+  }) as EventListener);
+
+  // Listen for notifications
+  window.addEventListener('notificationReceived', ((event: CustomEvent) => {
+    console.log('Notification received:', event.detail);
+  }) as EventListener);
+
+  window.addEventListener('notificationTapped', ((event: CustomEvent) => {
+    console.log('Notification tapped:', event.detail);
+    // Handle navigation based on notification data
+    const data = event.detail?.data;
+    if (data?.route) {
+      window.location.href = data.route;
+    }
+  }) as EventListener);
+};
+
+/**
+ * Handle messages from native app
+ */
+const handleNativeMessage = (event: MessageEvent): void => {
   try {
-    // Configure status bar
-    await setupStatusBar();
+    const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
 
-    // Handle back button on Android
-    setupBackButton();
+    switch (data.type) {
+      case 'PUSH_TOKEN':
+        console.log('Push token received via message:', data.token);
+        // Store or use the token
+        break;
 
-    // Handle app state changes
-    setupAppStateListener();
+      case 'NOTIFICATION_RECEIVED':
+        console.log('Notification received via message:', data.notification);
+        break;
 
-    // Hide splash screen after initialization
-    await SplashScreen.hide();
+      case 'NOTIFICATION_TAPPED':
+        console.log('Notification tapped via message:', data.notification);
+        if (data.notification?.data?.route) {
+          window.location.href = data.notification.data.route;
+        }
+        break;
 
-    console.log('Mobile app initialized successfully');
-  } catch (error) {
-    console.error('Error initializing mobile app:', error);
-  }
-};
-
-/**
- * Setup status bar styling
- */
-const setupStatusBar = async (): Promise<void> => {
-  try {
-    // Set dark style (light text for dark backgrounds)
-    await StatusBar.setStyle({ style: Style.Dark });
-
-    if (isAndroid()) {
-      // Make status bar transparent on Android
-      await StatusBar.setBackgroundColor({ color: '#000000' });
-      await StatusBar.setOverlaysWebView({ overlay: false });
+      default:
+        // Unknown message type
+        break;
     }
-  } catch (error) {
-    console.error('Error setting up status bar:', error);
+  } catch {
+    // Not a JSON message, ignore
   }
-};
-
-/**
- * Setup Android back button handling
- */
-const setupBackButton = (): void => {
-  App.addListener('backButton', ({ canGoBack }) => {
-    if (canGoBack) {
-      window.history.back();
-    } else {
-      // Optionally show exit confirmation or just exit
-      App.exitApp();
-    }
-  });
-};
-
-/**
- * Setup app state change listeners
- */
-const setupAppStateListener = (): void => {
-  App.addListener('appStateChange', ({ isActive }) => {
-    if (isActive) {
-      // App came to foreground
-      console.log('App is active');
-      // You can refresh data, reconnect websockets, etc.
-    } else {
-      // App went to background
-      console.log('App is in background');
-      // You can pause timers, save state, etc.
-    }
-  });
-
-  // Handle app URL open (deep links)
-  App.addListener('appUrlOpen', ({ url }) => {
-    console.log('App opened with URL:', url);
-    // Handle deep linking here
-    // Example: navigate to specific routes based on URL
-    handleDeepLink(url);
-  });
-};
-
-/**
- * Handle deep linking
- */
-const handleDeepLink = (url: string): void => {
-  try {
-    const urlObj = new URL(url);
-    const path = urlObj.pathname;
-
-    // Navigate based on path
-    // This integrates with react-router
-    if (path) {
-      window.location.hash = path;
-    }
-  } catch (error) {
-    console.error('Error handling deep link:', error);
-  }
-};
-
-/**
- * Show keyboard (useful for focusing inputs)
- */
-export const showKeyboard = async (): Promise<void> => {
-  if (isNativePlatform()) {
-    try {
-      await Keyboard.show();
-    } catch (error) {
-      console.error('Error showing keyboard:', error);
-    }
-  }
-};
-
-/**
- * Hide keyboard
- */
-export const hideKeyboard = async (): Promise<void> => {
-  if (isNativePlatform()) {
-    try {
-      await Keyboard.hide();
-    } catch (error) {
-      console.error('Error hiding keyboard:', error);
-    }
-  }
-};
-
-/**
- * Add keyboard show/hide listeners
- */
-export const addKeyboardListeners = (
-  onShow?: (height: number) => void,
-  onHide?: () => void
-): (() => void) => {
-  if (!isNativePlatform()) {
-    return () => { };
-  }
-
-  const showListener = Keyboard.addListener('keyboardWillShow', (info) => {
-    onShow?.(info.keyboardHeight);
-  });
-
-  const hideListener = Keyboard.addListener('keyboardWillHide', () => {
-    onHide?.();
-  });
-
-  // Return cleanup function
-  return () => {
-    showListener.then((l) => l.remove());
-    hideListener.then((l) => l.remove());
-  };
 };
 
 /**
@@ -212,26 +279,7 @@ export const getMobilePaddingClasses = (): string => {
   if (!isNativePlatform()) {
     return '';
   }
-
   return 'pb-safe pl-safe pr-safe';
-};
-
-/**
- * Check if device has a notch (iPhone X and later)
- */
-export const hasNotch = (): boolean => {
-  if (!isNativePlatform() || !isIOS()) {
-    return false;
-  }
-
-  // Check if safe area inset is greater than default status bar
-  const topInset = parseInt(
-    getComputedStyle(document.documentElement)
-      .getPropertyValue('--sat')
-      .replace('px', '') || '0'
-  );
-
-  return topInset > 20;
 };
 
 /**
@@ -246,11 +294,47 @@ export const vibrate = (duration: number = 50): void => {
 /**
  * Open external URL in system browser
  */
-export const openExternalUrl = async (url: string): Promise<void> => {
-  if (isNativePlatform()) {
-    // On native, use capacitor browser or system browser
-    window.open(url, '_system');
+export const openExternalUrl = (url: string): void => {
+  if (isExpoWebView()) {
+    // Post message to native app to open in browser
+    postMessageToNative('EXTERNAL_LINK', { url });
   } else {
     window.open(url, '_blank');
   }
+};
+
+/**
+ * Check if device has a notch (iPhone X and later)
+ */
+export const hasNotch = (): boolean => {
+  if (!isNativePlatform() || !isIOS()) {
+    return false;
+  }
+
+  // Check if safe area inset is greater than default status bar
+  const style = getComputedStyle(document.documentElement);
+  const topInset = parseInt(style.getPropertyValue('--sat').replace('px', '') || '0');
+  return topInset > 20;
+};
+
+// Export default object with all functions
+export default {
+  isNativePlatform,
+  isExpoWebView,
+  isCapacitor,
+  getPlatform,
+  isIOS,
+  isAndroid,
+  getPushToken,
+  sendTestNotification,
+  scheduleNotification,
+  cancelAllNotifications,
+  registerPushToken,
+  postMessageToNative,
+  initMobileApp,
+  getSafeAreaInsets,
+  getMobilePaddingClasses,
+  vibrate,
+  openExternalUrl,
+  hasNotch,
 };

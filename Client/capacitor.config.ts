@@ -12,29 +12,29 @@ const config: CapacitorConfig = {
     androidScheme: 'https',
     iosScheme: 'https',
   },
-  plugins: {
-    SplashScreen: {
-      launchShowDuration: 2000,
-      launchAutoHide: true,
-      backgroundColor: '#121212',
-      androidSplashResourceName: 'splash',
-      androidScaleType: 'CENTER_CROP',
-      showSpinner: false,
-      splashFullScreen: true,
-      splashImmersive: true,
-    },
-    StatusBar: {
-      style: 'dark',
-      backgroundColor: '#121212',
-    },
-    Keyboard: {
-      resize: 'body',
-      resizeOnFullScreen: true,
-    },
-    PushNotifications: {
-      presentationOptions: ['badge', 'sound', 'alert'],
-    },
+  // plugins: {
+  //   SplashScreen: {
+  //     launchShowDuration: 2000,
+  //     launchAutoHide: true,
+  //     backgroundColor: '#121212',
+  //     androidSplashResourceName: 'splash',
+  //     androidScaleType: 'CENTER_CROP',
+  //     showSpinner: false,
+  //     splashFullScreen: true,
+  //     splashImmersive: true,
+  //   },
+  StatusBar: {
+    style: 'dark',
+    backgroundColor: '#121212',
   },
+  Keyboard: {
+    resize: 'body',
+    resizeOnFullScreen: true,
+  },
+  PushNotifications: {
+    presentationOptions: ['badge', 'sound', 'alert'],
+  },
+},
   ios: {
     contentInset: 'automatic',
     preferredContentMode: 'mobile',

@@ -44,8 +44,7 @@
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
         "android.permission.POST_NOTIFICATIONS"
-      ],
-      "googleServicesFile": "./google-services.json"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -56,22 +55,21 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/notification-icon.png",
           "color": "#5B9BF3",
           "sounds": [
-            "./assets/notification.wav"
+            "./assets/notification.mp3"
           ],
           "defaultChannel": "default"
         }
       ]
     ],
     "notification": {
-      "icon": "./assets/notification-icon.png",
       "color": "#5B9BF3",
       "androidMode": "default",
       "androidCollapsedTitle": "Studese"
     },
     "extra": {
+      "webUrl": "https://studese.com",
       "eas": {
         "projectId": "your-project-id"
       }

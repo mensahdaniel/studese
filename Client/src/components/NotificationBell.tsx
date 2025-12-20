@@ -63,6 +63,7 @@ const NotificationBell: React.FC = () => {
   const notificationAudioRef = useRef<HTMLAudioElement | null>(null);
   const alarmAudioRef = useRef<HTMLAudioElement | null>(null);
   const [highlightedNotification, setHighlightedNotification] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Initialize audio elements
   // notification.mp3 - for general notifications (shares, system messages)
@@ -144,6 +145,11 @@ const NotificationBell: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Store user ID for real-time filtering
+      if (!currentUserId) {
+        setCurrentUserId(user.id);
+      }
+
       const { data, error } = await supabase
         .from("notifications")
         .select("*")
@@ -161,21 +167,25 @@ const NotificationBell: React.FC = () => {
     } catch (error) {
       console.error("Error fetching notifications:", error);
     }
-  }, []);
+  }, [currentUserId]);
 
   // Initial fetch and setup real-time subscription
   useEffect(() => {
     fetchNotifications();
 
-    // Subscribe to new notifications
+    // Only set up real-time subscription if we have the user ID
+    if (!currentUserId) return;
+
+    // Subscribe to new notifications with user_id filter
     const channel = supabase
-      .channel("notifications")
+      .channel(`notifications:${currentUserId}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "notifications",
+          filter: `user_id=eq.${currentUserId}`,
         },
         (payload) => {
           const newNotification = payload.new as Notification;
@@ -200,6 +210,7 @@ const NotificationBell: React.FC = () => {
           event: "UPDATE",
           schema: "public",
           table: "notifications",
+          filter: `user_id=eq.${currentUserId}`,
         },
         (payload) => {
           setNotifications((prev) =>
@@ -216,7 +227,43 @@ const NotificationBell: React.FC = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchNotifications, playNotificationSound, playAlarmSound]);
+  }, [fetchNotifications, playNotificationSound, playAlarmSound, currentUserId]);
+
+  // Refresh notifications when app becomes visible (important for mobile WebView)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchNotifications();
+      }
+    };
+
+    // Also listen for focus events (backup for visibility)
+    const handleFocus = () => {
+      fetchNotifications();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
+
+    // Listen for native app foreground event (Expo WebView)
+    const handleAppForeground = () => {
+      fetchNotifications();
+    };
+    (window as unknown as { onAppForeground?: () => void }).onAppForeground = handleAppForeground;
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
+      delete (window as unknown as { onAppForeground?: () => void }).onAppForeground;
+    };
+  }, [fetchNotifications]);
+
+  // Refresh when popover opens
+  useEffect(() => {
+    if (isOpen) {
+      fetchNotifications();
+    }
+  }, [isOpen, fetchNotifications]);
 
   // Mark single notification as read
   const markAsRead = async (notificationId: string) => {

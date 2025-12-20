@@ -5,6 +5,7 @@ import { WebView, WebViewNavigation } from 'react-native-webview';
 import * as ExpoSplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 import {
   registerForPushNotificationsAsync,
   addNotificationReceivedListener,
@@ -17,7 +18,8 @@ import SplashScreen from './components/SplashScreen';
 // Keep native splash screen visible while loading
 ExpoSplashScreen.preventAutoHideAsync();
 
-const STUDESE_URL = 'https://studese.com';
+// Get URL from environment config, fallback to production URL
+const STUDESE_URL = Constants.expoConfig?.extra?.webUrl || 'https://studese.com';
 
 // Configure notification handler for foreground notifications
 Notifications.setNotificationHandler({
@@ -30,11 +32,17 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// Check if URL is internal (contains "studese")
+// Check if URL is internal (studese domain or localhost for development)
 const isInternalUrl = (url: string): boolean => {
   try {
     const urlLower = url.toLowerCase();
-    return urlLower.includes('studese');
+    return (
+      urlLower.includes('studese.com') ||
+      urlLower.includes('studese.vercel.app') ||
+      urlLower.includes('localhost') ||
+      urlLower.includes('127.0.0.1') ||
+      urlLower.includes('192.168.')
+    );
   } catch {
     return false;
   }
@@ -326,8 +334,8 @@ export default function App() {
         const target = e.target.closest('a');
         if (target && target.href) {
           const href = target.href.toLowerCase();
-          // If link doesn't contain 'studese', let React Native handle it
-          if (!href.includes('studese')) {
+          // If link doesn't contain 'studese' or hostname, let React Native handle it
+          if (!href.includes('studese') && !href.includes(window.location.hostname)) {
             e.preventDefault();
             window.ReactNativeWebView.postMessage(JSON.stringify({
               type: 'EXTERNAL_LINK',

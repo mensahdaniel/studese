@@ -58,7 +58,7 @@ import { supabase } from "@/utils/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { isBefore, subDays, addDays, format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { triggerTaskAlarm } from "@/lib/notificationEvents";
+import { forceCheckReminders, clearTaskReminder } from "@/services/taskReminderService";
 
 interface Task {
   id: string;
@@ -92,10 +92,7 @@ const Tasks = () => {
   const [loading, setLoading] = useState(true);
   const [showAddDialog, setShowAddDialog] = useState(false);
 
-  const [triggeredReminders, setTriggeredReminders] = useState<Set<string>>(new Set());
   const { toast } = useToast();
-
-  const reminderIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const [newTask, setNewTask] = useState<NewTask>({
     title: "",
@@ -106,69 +103,12 @@ const Tasks = () => {
     due_time: "",
   });
 
-
-
-
-
-
-  // Create in-app notification for task reminder
-  const createTaskNotification = useCallback(async (task: Task) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Create notification in database (will appear in NotificationBell)
-      await supabase.from("notifications").insert({
-        user_id: user.id,
-        type: "task",
-        title: "Task Due Now",
-        message: `"${task.title}" is due now!`,
-        data: {
-          task_id: task.id,
-        },
-        is_read: false,
-      });
-    } catch (error) {
-      console.error("Failed to create task notification:", error);
-    }
-  }, []);
-
-  // Check for due reminders
-  const checkReminders = useCallback(() => {
-    const now = new Date();
-
-    tasks.forEach(async (task) => {
-      if (task.completed || triggeredReminders.has(task.id)) return;
-
-      const dueDate = new Date(task.due_date);
-      const diffMs = dueDate.getTime() - now.getTime();
-
-      // Trigger reminder if task is due within the next minute or overdue (up to 5 min)
-      if (diffMs <= 60000 && diffMs > -300000) {
-        if (!triggeredReminders.has(task.id)) {
-          setTriggeredReminders((prev) => new Set([...prev, task.id]));
-
-          // Create in-app notification (appears in NotificationBell)
-          await createTaskNotification(task);
-
-          // Trigger the notification bell to open and play alarm sound
-          triggerTaskAlarm(task.id, "Task Due Now!", task.title);
-        }
-      }
-    });
-  }, [tasks, triggeredReminders, createTaskNotification]);
-
-  // Set up reminder interval
+  // Trigger a check when tasks change (handled by global taskReminderService)
   useEffect(() => {
-    reminderIntervalRef.current = setInterval(checkReminders, 30000); // Check every 30 seconds
-    checkReminders(); // Check immediately
-
-    return () => {
-      if (reminderIntervalRef.current) {
-        clearInterval(reminderIntervalRef.current);
-      }
-    };
-  }, [checkReminders]);
+    if (tasks.length > 0) {
+      forceCheckReminders();
+    }
+  }, [tasks]);
 
   // Calculate time remaining
   const getTimeRemaining = (dueDateUTC: string): { text: string; isOverdue: boolean; isUrgent: boolean } => {
@@ -412,6 +352,9 @@ const Tasks = () => {
         )
       );
 
+      // Clear the reminder so it can trigger again if task is uncompleted
+      clearTaskReminder(task.id);
+
       if (data[0].completed) {
         toast({
           title: "Task Completed",
@@ -432,6 +375,9 @@ const Tasks = () => {
         variant: "destructive",
       });
     } else {
+      // Clear any pending reminder for this task
+      clearTaskReminder(task.id);
+
       setTasks(tasks.filter((t) => t.id !== task.id));
       toast({
         title: "Task Deleted",

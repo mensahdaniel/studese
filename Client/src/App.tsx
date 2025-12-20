@@ -5,7 +5,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Analytics } from '@vercel/analytics/react';
-import { initMobileApp, isNativePlatform } from "@/utils/mobile";
+import { initMobileApp } from "@/utils/mobile";
+import { startTaskReminders, stopTaskReminders } from "@/services/taskReminderService";
+import { initializePushNotifications, cleanupPushNotifications } from "@/utils/pushNotifications";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -88,13 +90,19 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Initialize mobile app features (Capacitor)
+    // Initialize mobile app features (Capacitor/Expo)
     initMobileApp();
 
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setIsLoading(false);
+
+      // Start task reminders and push notifications if user is logged in
+      if (session) {
+        startTaskReminders();
+        initializePushNotifications();
+      }
     });
 
     // Listen for auth state changes
@@ -103,10 +111,23 @@ const App = () => {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setIsLoading(false);
+
+      // Start/stop task reminders and push notifications based on auth state
+      if (session) {
+        startTaskReminders();
+        initializePushNotifications();
+      } else {
+        stopTaskReminders();
+        cleanupPushNotifications();
+      }
     });
 
     // Cleanup subscription on unmount
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      stopTaskReminders();
+      cleanupPushNotifications();
+    };
   }, []);
 
   if (isLoading) {
