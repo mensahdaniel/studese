@@ -18,6 +18,9 @@ import Resources from "./pages/Resources";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import NoteEditor from "./pages/NoteEditor";
+import SharedNote from "./pages/SharedNote";
+import Layout from "./components/Layout";
+
 import StripeCheckout from "./components/StripeCheckout";
 import Success from "./pages/Success";
 import { supabase } from "@/utils/supabase";
@@ -132,115 +135,33 @@ const App = () => {
             {/* Success page - after payment */}
             <Route path="/success" element={session ? <Success /> : <Navigate to="/login" />} />
 
+            {/* Public shared note route - accessible without login */}
+            <Route path="/shared/:linkId" element={<SharedNote />} />
+
             {/* PROTECTED ROUTES - REQUIRE BOTH LOGIN AND PAYMENT */}
+            {/* Wrap all protected routes in a persistent Layout */}
             <Route
-              path="/dashboard"
               element={
                 session ? (
                   <ProtectedRoute>
-                    <Dashboard />
+                    <Layout />
                   </ProtectedRoute>
                 ) : (
                   <Navigate to="/login" />
                 )
               }
-            />
-            <Route
-              path="/calendar"
-              element={
-                session ? (
-                  <ProtectedRoute>
-                    <Calendar />
-                  </ProtectedRoute>
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-            <Route
-              path="/notes"
-              element={
-                session ? (
-                  <ProtectedRoute>
-                    <Notes />
-                  </ProtectedRoute>
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-            <Route
-              path="/notes/:id"
-              element={
-                session ? (
-                  <ProtectedRoute>
-                    <NoteEditor />
-                  </ProtectedRoute>
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-            <Route
-              path="/study-wellness"
-              element={
-                session ? (
-                  <ProtectedRoute>
-                    <StudyWellness />
-                  </ProtectedRoute>
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-            <Route
-              path="/tasks"
-              element={
-                session ? (
-                  <ProtectedRoute>
-                    <Tasks />
-                  </ProtectedRoute>
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-            <Route
-              path="/events"
-              element={
-                session ? (
-                  <ProtectedRoute>
-                    <Events />
-                  </ProtectedRoute>
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-            <Route
-              path="/resources"
-              element={
-                session ? (
-                  <ProtectedRoute>
-                    <Resources />
-                  </ProtectedRoute>
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                session ? (
-                  <ProtectedRoute>
-                    <Settings />
-                  </ProtectedRoute>
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
+            >
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/calendar" element={<Calendar />} />
+              <Route path="/notes" element={<Notes />} />
+              <Route path="/notes/:id" element={<NoteEditor />} />
+              <Route path="/study-wellness" element={<StudyWellness />} />
+              <Route path="/tasks" element={<Tasks />} />
+              <Route path="/events" element={<Events />} />
+              <Route path="/resources" element={<Resources />} />
+              <Route path="/settings" element={<Settings />} />
+            </Route>
+
 
             <Route path="*" element={<NotFound />} />
           </Routes>

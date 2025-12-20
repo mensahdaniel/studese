@@ -13,7 +13,7 @@ import {
   Trash2,
   ExternalLink
 } from "lucide-react";
-import Layout from "@/components/Layout";
+
 import { supabase } from "@/utils/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { format, addDays, subDays, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay } from "date-fns";
@@ -69,7 +69,7 @@ const Calendar = () => {
         const lat = 49.78542855061154;
         const lng = -97.1999175474503781;
         const page = 1;
-        
+
         const response = await fetch(
           `https://nlgrnddx13.execute-api.us-east-1.amazonaws.com/prod/event/list?lat=${lat}&lng=${lng}&page=${page}`,
           {
@@ -102,10 +102,10 @@ const Calendar = () => {
 
         setEvents(formattedEvents);
       } catch (error) {
-        toast({ 
-          title: "Error", 
-          description: "Failed to fetch events from external API.", 
-          variant: "destructive" 
+        toast({
+          title: "Error",
+          description: "Failed to fetch events from external API.",
+          variant: "destructive"
         });
         console.error('API fetch error:', error);
       }
@@ -170,152 +170,150 @@ const Calendar = () => {
   if (isLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
 
   return (
-    <Layout>
-      <div className="p-6 space-y-6">
-        {/* Navigation */}
-        <div className="flex items-center justify-between">
-          <Button variant="ghost" onClick={() => setCurrentDate(subDays(currentDate, view === "month" ? 30 : 7))}>
-            <ChevronLeft />
-          </Button>
-          <h1 className="text-xl font-bold">{format(currentDate, view === "month" ? "MMMM yyyy" : "MMM d, yyyy")}</h1>
-          <Button variant="ghost" onClick={() => setCurrentDate(addDays(currentDate, view === "month" ? 30 : 7))}>
-            <ChevronRight />
-          </Button>
-        </div>
-
-        {/* View Switch */}
-        <div className="flex gap-2">
-          <Button variant={view === "month" ? "default" : "outline"} onClick={() => setView("month")}>Month</Button>
-          <Button variant={view === "week" ? "default" : "outline"} onClick={() => setView("week")}>Week</Button>
-          <Button variant={view === "day" ? "default" : "outline"} onClick={() => setView("day")}>Day</Button>
-        </div>
-        
-        {/* Add Task Button */}
-        <Button onClick={() => window.location.href = '/tasks'}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Task
+    <div className="p-6 space-y-6">
+      {/* Navigation */}
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" onClick={() => setCurrentDate(subDays(currentDate, view === "month" ? 30 : 7))}>
+          <ChevronLeft />
         </Button>
+        <h1 className="text-xl font-bold">{format(currentDate, view === "month" ? "MMMM yyyy" : "MMM d, yyyy")}</h1>
+        <Button variant="ghost" onClick={() => setCurrentDate(addDays(currentDate, view === "month" ? 30 : 7))}>
+          <ChevronRight />
+        </Button>
+      </div>
 
-        {/* Calendar View */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="md:col-span-2">
-            <CardHeader>
-              <CardTitle>Calendar</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {view === "month" && (
-                <div className="grid grid-cols-7 gap-2">
-                  {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(day => (
-                    <div key={day} className="text-center font-medium text-sm">{day}</div>
-                  ))}
-                  {getDaysInMonth().map(day => (
-                    <div key={day.toString()} className={`p-2 border rounded ${isSameDay(day, new Date()) ? "bg-primary/10" : ""}`}>
-                      <div className="text-sm font-medium">{format(day, "d")}</div>
-                      <div className="space-y-1 mt-1">
-                        {getItemsForDate(day).slice(0, 2).map(i => (
-                          <div 
-                            key={i.id} 
-                            className={`text-xs p-1 rounded ${i.color} cursor-pointer hover:opacity-80 transition-opacity`}
-                            onClick={() => i.type === "event" && openEventPage(i.id)}
-                          >
-                            {i.title}
-                          </div>
-                        ))}
-                        {getItemsForDate(day).length > 2 && <div className="text-xs">+{getItemsForDate(day).length - 2} more</div>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+      {/* View Switch */}
+      <div className="flex gap-2">
+        <Button variant={view === "month" ? "default" : "outline"} onClick={() => setView("month")}>Month</Button>
+        <Button variant={view === "week" ? "default" : "outline"} onClick={() => setView("week")}>Week</Button>
+        <Button variant={view === "day" ? "default" : "outline"} onClick={() => setView("day")}>Day</Button>
+      </div>
 
-              {view === "week" && (
-                <div className="space-y-2">
-                  {eachDayOfInterval({ start: startOfWeek(currentDate), end: endOfWeek(currentDate) }).map(day => (
-                    <div key={day.toString()} className="p-2 border rounded">
-                      <div className="font-medium">{format(day, "EEE d")}</div>
-                      <div className="space-y-1 mt-1">
-                        {getItemsForDate(day).map(i => (
-                          <div 
-                            key={i.id} 
-                            className={`text-sm p-1 rounded ${i.color} cursor-pointer hover:opacity-80 transition-opacity`}
-                            onClick={() => i.type === "event" && openEventPage(i.id)}
-                          >
-                            {i.title}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+      {/* Add Task Button */}
+      <Button onClick={() => window.location.href = '/tasks'}>
+        <Plus className="h-4 w-4 mr-2" />
+        Add Task
+      </Button>
 
-              {view === "day" && (
-                <div className="space-y-2">
-                  <div className="text-center text-lg font-medium mb-2">
-                    {format(currentDate, "MMMM d, yyyy")}
-                  </div>
-                  <div className="space-y-1">
-                    {getItemsForDate(currentDate).map(i => (
-                      <div 
-                        key={i.id} 
-                        className={`p-2 border rounded ${i.color} cursor-pointer hover:opacity-80 transition-opacity`}
-                        onClick={() => i.type === "event" && openEventPage(i.id)}
-                      >
-                        <div className="font-medium">{i.title}</div>
-                        {i.location && <div className="text-xs text-muted-foreground">{i.location}</div>}
-                        <Badge>{i.type}</Badge>
-                      </div>
-                    ))}
-                    {getItemsForDate(currentDate).length === 0 && (
-                      <div className="text-sm text-muted-foreground text-center">No items</div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Upcoming Items Sidebar */}
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Upcoming Items</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {(showAllItems ? allItems : allItems.slice(0, 4)).map(i => (
-                  <div key={i.id} className="space-y-2 p-3 rounded-lg border border-border flex justify-between items-center">
-                    <div className="flex-1">
-                      <h4 
-                        className={`font-medium text-sm cursor-pointer hover:underline ${i.type === "event" ? "text-blue-600" : ""}`}
-                        onClick={() => i.type === "event" && openEventPage(i.id)}
-                      >
-                        {i.title}
-                      </h4>
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <CalendarIcon className="h-3 w-3" />
-                        {safeFormatDate(i.date)}
-                      </div>
-                      <Badge className={i.color}>{i.type}</Badge>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {i.type === "task" && <Checkbox checked={i.completed} onCheckedChange={() => toggleComplete(i)} />}
-                      <Trash2 className="h-4 w-4 cursor-pointer" onClick={() => deleteItem(i)} />
-                      {i.type === "event" && (
-                        <ExternalLink 
-                          className="h-4 w-4 cursor-pointer text-blue-500" 
-                          onClick={() => openEventPage(i.id)}
-                        />
-                      )}
+      {/* Calendar View */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle>Calendar</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {view === "month" && (
+              <div className="grid grid-cols-7 gap-2">
+                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(day => (
+                  <div key={day} className="text-center font-medium text-sm">{day}</div>
+                ))}
+                {getDaysInMonth().map(day => (
+                  <div key={day.toString()} className={`p-2 border rounded ${isSameDay(day, new Date()) ? "bg-primary/10" : ""}`}>
+                    <div className="text-sm font-medium">{format(day, "d")}</div>
+                    <div className="space-y-1 mt-1">
+                      {getItemsForDate(day).slice(0, 2).map(i => (
+                        <div
+                          key={i.id}
+                          className={`text-xs p-1 rounded ${i.color} cursor-pointer hover:opacity-80 transition-opacity`}
+                          onClick={() => i.type === "event" && openEventPage(i.id)}
+                        >
+                          {i.title}
+                        </div>
+                      ))}
+                      {getItemsForDate(day).length > 2 && <div className="text-xs">+{getItemsForDate(day).length - 2} more</div>}
                     </div>
                   </div>
                 ))}
-                {allItems.length > 4 && <Button variant="link" size="sm" onClick={() => setShowAllItems(!showAllItems)}>{showAllItems ? "Collapse" : "Show All"}</Button>}
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            )}
+
+            {view === "week" && (
+              <div className="space-y-2">
+                {eachDayOfInterval({ start: startOfWeek(currentDate), end: endOfWeek(currentDate) }).map(day => (
+                  <div key={day.toString()} className="p-2 border rounded">
+                    <div className="font-medium">{format(day, "EEE d")}</div>
+                    <div className="space-y-1 mt-1">
+                      {getItemsForDate(day).map(i => (
+                        <div
+                          key={i.id}
+                          className={`text-sm p-1 rounded ${i.color} cursor-pointer hover:opacity-80 transition-opacity`}
+                          onClick={() => i.type === "event" && openEventPage(i.id)}
+                        >
+                          {i.title}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {view === "day" && (
+              <div className="space-y-2">
+                <div className="text-center text-lg font-medium mb-2">
+                  {format(currentDate, "MMMM d, yyyy")}
+                </div>
+                <div className="space-y-1">
+                  {getItemsForDate(currentDate).map(i => (
+                    <div
+                      key={i.id}
+                      className={`p-2 border rounded ${i.color} cursor-pointer hover:opacity-80 transition-opacity`}
+                      onClick={() => i.type === "event" && openEventPage(i.id)}
+                    >
+                      <div className="font-medium">{i.title}</div>
+                      {i.location && <div className="text-xs text-muted-foreground">{i.location}</div>}
+                      <Badge>{i.type}</Badge>
+                    </div>
+                  ))}
+                  {getItemsForDate(currentDate).length === 0 && (
+                    <div className="text-sm text-muted-foreground text-center">No items</div>
+                  )}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Upcoming Items Sidebar */}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Upcoming Items</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {(showAllItems ? allItems : allItems.slice(0, 4)).map(i => (
+                <div key={i.id} className="space-y-2 p-3 rounded-lg border border-border flex justify-between items-center">
+                  <div className="flex-1">
+                    <h4
+                      className={`font-medium text-sm cursor-pointer hover:underline ${i.type === "event" ? "text-blue-600" : ""}`}
+                      onClick={() => i.type === "event" && openEventPage(i.id)}
+                    >
+                      {i.title}
+                    </h4>
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <CalendarIcon className="h-3 w-3" />
+                      {safeFormatDate(i.date)}
+                    </div>
+                    <Badge className={i.color}>{i.type}</Badge>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {i.type === "task" && <Checkbox checked={i.completed} onCheckedChange={() => toggleComplete(i)} />}
+                    <Trash2 className="h-4 w-4 cursor-pointer" onClick={() => deleteItem(i)} />
+                    {i.type === "event" && (
+                      <ExternalLink
+                        className="h-4 w-4 cursor-pointer text-blue-500"
+                        onClick={() => openEventPage(i.id)}
+                      />
+                    )}
+                  </div>
+                </div>
+              ))}
+              {allItems.length > 4 && <Button variant="link" size="sm" onClick={() => setShowAllItems(!showAllItems)}>{showAllItems ? "Collapse" : "Show All"}</Button>}
+            </CardContent>
+          </Card>
         </div>
       </div>
-    </Layout>
+    </div>
   );
 };
 

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar, CheckSquare, FileText, Plus, LogOut, BookOpen } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import Layout from "@/components/Layout";
+
 import { supabase } from "@/utils/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow, isBefore, subDays } from "date-fns";
@@ -95,144 +95,142 @@ const Dashboard = () => {
   };
 
   return (
-    <Layout>
-      <div className="p-6 space-y-8 max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight">
-              {getGreeting()}, {user?.user_metadata?.username || "Student"} 👋
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Welcome to your Studese Pro dashboard
-            </p>
-          </div>
-          <Button variant="outline" onClick={handleSignOut} className="flex items-center gap-2">
-            <LogOut className="h-4 w-4" />
-            Sign Out
-          </Button>
+    <div className="p-6 space-y-8 max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-4xl font-bold tracking-tight">
+            {getGreeting()}, {user?.user_metadata?.username || "Student"} 👋
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Welcome to your Studese Pro dashboard
+          </p>
         </div>
+        <Button variant="outline" onClick={handleSignOut} className="flex items-center gap-2">
+          <LogOut className="h-4 w-4" />
+          Sign Out
+        </Button>
+      </div>
 
-        {/* REMOVED: Stripe Upgrade Banner - Only paid users see dashboard now */}
+      {/* REMOVED: Stripe Upgrade Banner - Only paid users see dashboard now */}
 
-        {/* Grid Layout for Events, Tasks, Notes */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Upcoming Events */}
-          <Card className="lg:col-span-1">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-                <Calendar className="h-5 w-5 text-primary" /> Upcoming Events
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {upcomingEvents.length ? (
-                <div className="space-y-3">
-                  {upcomingEvents.map(evt => (
-                    <div
-                      key={evt.id}
-                      className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent transition"
-                    >
-                      <p className="font-medium text-sm">{evt.title}</p>
-                      <span className="text-xs text-muted-foreground">{formatDate(evt.date)}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <EmptyState icon={Calendar} text="No upcoming events" subtext="Add some to stay organized" />
-              )}
-              <div className="mt-4 text-right">
-                <Button variant="outline" asChild>
-                  <Link to="/events"><Plus className="h-4 w-4 mr-2" /> Add Event</Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Today's Tasks */}
-          <Card className="lg:col-span-1">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-                <CheckSquare className="h-5 w-5 text-primary" /> Today's Tasks
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {todaysTasks.length ? (
-                <div className="space-y-3">
-                  {todaysTasks.map(task => (
-                    <div
-                      key={task.id}
-                      className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent transition"
-                    >
-                      <p className="font-medium text-sm">{task.title}</p>
-                      <span className={`text-xs font-semibold px-2 py-1 rounded ${task.urgent ? "bg-red-100 text-red-600" : "bg-green-100 text-green-600"}`}>
-                        {task.dynamic_priority}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <EmptyState icon={CheckSquare} text="No tasks for today" subtext="You're all caught up!" />
-              )}
-              <div className="mt-4 text-right">
-                <Button variant="outline" asChild>
-                  <Link to="/Tasks"><Plus className="h-4 w-4 mr-2" /> Add Task</Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Recent Notes */}
-          <Card className="lg:col-span-1">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-                <FileText className="h-5 w-5 text-primary" /> Recent Notes ({noteCount})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {recentNotes.length ? (
-                recentNotes.map(note => (
-                  <div
-                    key={note.id}
-                    className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent transition"
-                  >
-                    <p className="font-medium text-sm">{note.title}</p>
-                    <span className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(new Date(note.created_at), { addSuffix: true })}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <EmptyState icon={FileText} text="No notes yet" subtext="Start capturing your thoughts" />
-              )}
-              <div className="mt-4 text-right">
-                <Button variant="outline" asChild>
-                  <Link to="/Notes"><Plus className="h-4 w-4 mr-2" /> Add Note</Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Quick Actions */}
-        <Card>
+      {/* Grid Layout for Events, Tasks, Notes */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Upcoming Events */}
+        <Card className="lg:col-span-1">
           <CardHeader>
-            <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+              <Calendar className="h-5 w-5 text-primary" /> Upcoming Events
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {quickActions.map(action => (
-                <Link to={action.href} key={action.label}>
-                  <Button variant="outline" className="h-24 flex flex-col items-center gap-2 w-full">
-                    <action.icon className="h-6 w-6" />
-                    <span className="text-sm">{action.label}</span>
-                  </Button>
-                </Link>
-              ))}
+            {upcomingEvents.length ? (
+              <div className="space-y-3">
+                {upcomingEvents.map(evt => (
+                  <div
+                    key={evt.id}
+                    className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent transition"
+                  >
+                    <p className="font-medium text-sm">{evt.title}</p>
+                    <span className="text-xs text-muted-foreground">{formatDate(evt.date)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState icon={Calendar} text="No upcoming events" subtext="Add some to stay organized" />
+            )}
+            <div className="mt-4 text-right">
+              <Button variant="outline" asChild>
+                <Link to="/events"><Plus className="h-4 w-4 mr-2" /> Add Event</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Today's Tasks */}
+        <Card className="lg:col-span-1">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+              <CheckSquare className="h-5 w-5 text-primary" /> Today's Tasks
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {todaysTasks.length ? (
+              <div className="space-y-3">
+                {todaysTasks.map(task => (
+                  <div
+                    key={task.id}
+                    className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent transition"
+                  >
+                    <p className="font-medium text-sm">{task.title}</p>
+                    <span className={`text-xs font-semibold px-2 py-1 rounded ${task.urgent ? "bg-red-100 text-red-600" : "bg-green-100 text-green-600"}`}>
+                      {task.dynamic_priority}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState icon={CheckSquare} text="No tasks for today" subtext="You're all caught up!" />
+            )}
+            <div className="mt-4 text-right">
+              <Button variant="outline" asChild>
+                <Link to="/Tasks"><Plus className="h-4 w-4 mr-2" /> Add Task</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Recent Notes */}
+        <Card className="lg:col-span-1">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+              <FileText className="h-5 w-5 text-primary" /> Recent Notes ({noteCount})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {recentNotes.length ? (
+              recentNotes.map(note => (
+                <div
+                  key={note.id}
+                  className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent transition"
+                >
+                  <p className="font-medium text-sm">{note.title}</p>
+                  <span className="text-xs text-muted-foreground">
+                    {formatDistanceToNow(new Date(note.created_at), { addSuffix: true })}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <EmptyState icon={FileText} text="No notes yet" subtext="Start capturing your thoughts" />
+            )}
+            <div className="mt-4 text-right">
+              <Button variant="outline" asChild>
+                <Link to="/Notes"><Plus className="h-4 w-4 mr-2" /> Add Note</Link>
+              </Button>
             </div>
           </CardContent>
         </Card>
       </div>
-    </Layout>
+
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {quickActions.map(action => (
+              <Link to={action.href} key={action.label}>
+                <Button variant="outline" className="h-24 flex flex-col items-center gap-2 w-full">
+                  <action.icon className="h-6 w-6" />
+                  <span className="text-sm">{action.label}</span>
+                </Button>
+              </Link>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
