@@ -159,6 +159,20 @@ const App = () => {
             {/* Public shared note route - accessible without login */}
             <Route path="/shared/:linkId" element={<SharedNote />} />
 
+            {/* FULL-SCREEN PROTECTED ROUTES - No Layout wrapper */}
+            <Route
+              path="/notes/:id"
+              element={
+                session ? (
+                  <ProtectedRoute>
+                    <NoteEditor />
+                  </ProtectedRoute>
+                ) : (
+                  <Navigate to="/login" />
+                )
+              }
+            />
+
             {/* PROTECTED ROUTES - REQUIRE BOTH LOGIN AND PAYMENT */}
             {/* Wrap all protected routes in a persistent Layout */}
             <Route
@@ -175,7 +189,6 @@ const App = () => {
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/calendar" element={<Calendar />} />
               <Route path="/notes" element={<Notes />} />
-              <Route path="/notes/:id" element={<NoteEditor />} />
               <Route path="/study-wellness" element={<StudyWellness />} />
               <Route path="/tasks" element={<Tasks />} />
               <Route path="/events" element={<Events />} />

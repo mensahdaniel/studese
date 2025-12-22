@@ -116,47 +116,13 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
   return (
     <div
       className={cn(
-        "flex items-center gap-1 bg-background/95 backdrop-blur-sm border rounded-2xl shadow-lg p-2",
+        "flex items-center bg-background/95 backdrop-blur-sm border rounded-2xl shadow-lg p-1.5 sm:p-2",
+        "max-w-[calc(100vw-2rem)] overflow-x-auto scrollbar-none",
         className
       )}
     >
-      {/* Undo/Redo */}
-      <div className="flex items-center gap-1 px-1">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 rounded-xl"
-              onClick={onUndo}
-              disabled={!canUndo}
-            >
-              <Undo2 className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Undo</TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 rounded-xl"
-              onClick={onRedo}
-              disabled={!canRedo}
-            >
-              <Redo2 className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Redo</TooltipContent>
-        </Tooltip>
-      </div>
-
-      <Separator orientation="vertical" className="h-8" />
-
-      {/* Drawing Tools */}
-      <div className="flex items-center gap-1 px-1">
+      {/* Drawing Tools - Primary actions first on mobile */}
+      <div className="flex items-center gap-0.5 sm:gap-1 px-0.5 sm:px-1 shrink-0">
         {tools.map((t) => (
           <Tooltip key={t.id}>
             <TooltipTrigger asChild>
@@ -164,7 +130,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
                 variant={tool === t.id ? "secondary" : "ghost"}
                 size="icon"
                 className={cn(
-                  "h-10 w-10 rounded-xl transition-all",
+                  "h-9 w-9 sm:h-10 sm:w-10 rounded-xl transition-all shrink-0",
                   tool === t.id && "bg-primary/10 text-primary shadow-sm"
                 )}
                 onClick={() => setTool(t.id)}
@@ -177,7 +143,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         ))}
       </div>
 
-      <Separator orientation="vertical" className="h-8" />
+      <Separator orientation="vertical" className="h-6 sm:h-8 shrink-0" />
 
       {/* Color Picker */}
       {tool !== "eraser" && (
@@ -188,10 +154,10 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-10 w-10 rounded-xl"
+                  className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl shrink-0"
                 >
                   <div
-                    className="h-6 w-6 rounded-full border-2 border-white shadow-sm"
+                    className="h-5 w-5 sm:h-6 sm:w-6 rounded-full border-2 border-white shadow-sm"
                     style={{ backgroundColor: color }}
                   />
                 </Button>
@@ -236,7 +202,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         <Tooltip>
           <TooltipTrigger asChild>
             <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl">
+              <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl shrink-0">
                 <Circle
                   className="text-foreground"
                   style={{
@@ -286,14 +252,14 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         </PopoverContent>
       </Popover>
 
-      <Separator orientation="vertical" className="h-8" />
+      <Separator orientation="vertical" className="h-6 sm:h-8 shrink-0" />
 
       {/* Paper Template */}
       <Popover>
         <Tooltip>
           <TooltipTrigger asChild>
             <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl">
+              <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl shrink-0">
                 <Grid3X3 className="h-5 w-5" />
               </Button>
             </PopoverTrigger>
@@ -354,24 +320,97 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         </PopoverContent>
       </Popover>
 
-      {/* More Options */}
+      {/* More Options - Contains Undo/Redo/Clear on mobile, just Clear on desktop */}
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl">
+          <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl shrink-0 sm:hidden">
             <Palette className="h-5 w-5" />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-48 p-2" align="end">
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-2 text-destructive hover:text-destructive"
-            onClick={onClear}
-          >
-            <Trash2 className="h-4 w-4" />
-            Clear Canvas
-          </Button>
+          <div className="space-y-1">
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-2"
+              onClick={onUndo}
+              disabled={!canUndo}
+            >
+              <Undo2 className="h-4 w-4" />
+              Undo
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-2"
+              onClick={onRedo}
+              disabled={!canRedo}
+            >
+              <Redo2 className="h-4 w-4" />
+              Redo
+            </Button>
+            <Separator className="my-1" />
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-2 text-destructive hover:text-destructive"
+              onClick={onClear}
+            >
+              <Trash2 className="h-4 w-4" />
+              Clear Canvas
+            </Button>
+          </div>
         </PopoverContent>
       </Popover>
+
+      {/* Desktop: Show Undo/Redo buttons inline */}
+      <div className="hidden sm:flex items-center gap-1 px-1 shrink-0">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 rounded-xl"
+              onClick={onUndo}
+              disabled={!canUndo}
+            >
+              <Undo2 className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Undo</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 rounded-xl"
+              onClick={onRedo}
+              disabled={!canRedo}
+            >
+              <Redo2 className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Redo</TooltipContent>
+        </Tooltip>
+
+        {/* Desktop More Options */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl">
+              <Palette className="h-5 w-5" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-48 p-2" align="end">
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-2 text-destructive hover:text-destructive"
+              onClick={onClear}
+            >
+              <Trash2 className="h-4 w-4" />
+              Clear Canvas
+            </Button>
+          </PopoverContent>
+        </Popover>
+      </div>
     </div>
   );
 };
