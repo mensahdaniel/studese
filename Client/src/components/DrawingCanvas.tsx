@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback, useEffect, forwardRef, useImperativeHandle } from "react";
+import React, { useRef, useState, useCallback, useEffect, forwardRef, useImperativeHandle, useMemo } from "react";
 import getStroke from "perfect-freehand";
 import { Image as ImageIcon, Type, Move, X, GripVertical } from "lucide-react";
 
@@ -297,8 +297,16 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(
       { strokes: initialState?.strokes || [], elements: initialState?.elements || [] }
     ]);
     const [historyIndex, setHistoryIndex] = useState(0);
-    const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+    // Virtual canvas size - consistent across all devices
+    const VIRTUAL_CANVAS_WIDTH = 1920;
+    const VIRTUAL_CANVAS_HEIGHT = 1080;
+
+    const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
     const [isReady, setIsReady] = useState(false);
+    const [initialFitApplied, setInitialFitApplied] = useState(false);
+
+    // Use virtual canvas size for drawing, container size for display
+    const dimensions = useMemo(() => ({ width: VIRTUAL_CANVAS_WIDTH, height: VIRTUAL_CANVAS_HEIGHT }), []);
     const [selectedElement, setSelectedElement] = useState<string | null>(null);
     const [isDraggingElement, setIsDraggingElement] = useState(false);
     const [isResizing, setIsResizing] = useState(false);
@@ -308,6 +316,14 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(
     const [isDragOver, setIsDragOver] = useState(false);
     const [isPinching, setIsPinching] = useState(false);
     const [pinchStart, setPinchStart] = useState({ distance: 0, width: 0, height: 0 });
+
+    // Canvas zoom and pan state
+    const [canvasZoom, setCanvasZoom] = useState(1);
+    const [canvasPan, setCanvasPan] = useState({ x: 0, y: 0 });
+    const [isPanning, setIsPanning] = useState(false);
+    const [panStart, setPanStart] = useState({ x: 0, y: 0, panX: 0, panY: 0 });
+    const [lastPinchDistance, setLastPinchDistance] = useState(0);
+    const [lastPinchCenter, setLastPinchCenter] = useState({ x: 0, y: 0 });
     const lastTapRef = useRef<{ id: string; time: number } | null>(null);
 
     // Simple resize state using refs to avoid closure issues
@@ -534,16 +550,173 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(
       };
     }, [selectedElement, disabled, isPinching, pinchStart, elements, strokes, historyIndex, background, template, onChange]);
 
-    // Initialize canvas size
+    // Canvas zoom and pan with two-finger gestures (when no element is selected)
+    useEffect(() => {
+      const container = containerRef.current;
+      if (!container) return;
+
+      const getDistance = (touch1: Touch, touch2: Touch) => {
+        const dx = touch1.clientX - touch2.clientX;
+        const dy = touch1.clientY - touch2.clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+      };
+
+      const getCenter = (touch1: Touch, touch2: Touch) => {
+        return {
+          x: (touch1.clientX + touch2.clientX) / 2,
+          y: (touch1.clientY + touch2.clientY) / 2,
+        };
+      };
+
+      const handleTouchStart = (e: TouchEvent) => {
+        // Only handle canvas zoom/pan when no element is selected
+        if (selectedElement) return;
+
+        if (e.touches.length === 2) {
+          e.preventDefault();
+          const distance = getDistance(e.touches[0], e.touches[1]);
+          const center = getCenter(e.touches[0], e.touches[1]);
+
+          setLastPinchDistance(distance);
+          setLastPinchCenter(center);
+          setIsPanning(true);
+          setPanStart({
+            x: center.x,
+            y: center.y,
+            panX: canvasPan.x,
+            panY: canvasPan.y,
+          });
+        }
+      };
+
+      const handleTouchMove = (e: TouchEvent) => {
+        if (selectedElement) return;
+
+        if (e.touches.length === 2 && isPanning) {
+          e.preventDefault();
+
+          const currentDistance = getDistance(e.touches[0], e.touches[1]);
+          const currentCenter = getCenter(e.touches[0], e.touches[1]);
+
+          // Calculate zoom
+          if (lastPinchDistance > 0) {
+            const scale = currentDistance / lastPinchDistance;
+            setCanvasZoom((prevZoom) => {
+              const newZoom = prevZoom * scale;
+              // Clamp zoom between 0.5x and 4x
+              return Math.min(Math.max(newZoom, 0.5), 4);
+            });
+            setLastPinchDistance(currentDistance);
+          }
+
+          // Calculate pan
+          const deltaX = currentCenter.x - lastPinchCenter.x;
+          const deltaY = currentCenter.y - lastPinchCenter.y;
+
+          setCanvasPan((prev) => ({
+            x: prev.x + deltaX,
+            y: prev.y + deltaY,
+          }));
+
+          setLastPinchCenter(currentCenter);
+        }
+      };
+
+      const handleTouchEnd = (e: TouchEvent) => {
+        if (e.touches.length < 2) {
+          setIsPanning(false);
+          setLastPinchDistance(0);
+        }
+      };
+
+      container.addEventListener('touchstart', handleTouchStart, { passive: false });
+      container.addEventListener('touchmove', handleTouchMove, { passive: false });
+      container.addEventListener('touchend', handleTouchEnd);
+      container.addEventListener('touchcancel', handleTouchEnd);
+
+      return () => {
+        container.removeEventListener('touchstart', handleTouchStart);
+        container.removeEventListener('touchmove', handleTouchMove);
+        container.removeEventListener('touchend', handleTouchEnd);
+        container.removeEventListener('touchcancel', handleTouchEnd);
+      };
+    }, [selectedElement, isPanning, lastPinchDistance, lastPinchCenter, canvasPan, canvasZoom]);
+
+    // Wheel event for trackpad pinch-to-zoom on web (ctrl+wheel or pinch gesture)
+    useEffect(() => {
+      const container = containerRef.current;
+      if (!container) return;
+
+      const handleWheel = (e: WheelEvent) => {
+        // Trackpad pinch-to-zoom sends wheel events with ctrlKey
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+
+          const rect = container.getBoundingClientRect();
+          const mouseX = e.clientX - rect.left;
+          const mouseY = e.clientY - rect.top;
+
+          // Calculate zoom
+          const delta = -e.deltaY;
+          const zoomFactor = delta > 0 ? 1.05 : 0.95;
+
+          setCanvasZoom((prevZoom) => {
+            const newZoom = prevZoom * zoomFactor;
+            // Clamp zoom between 0.1x and 5x
+            const clampedZoom = Math.min(Math.max(newZoom, 0.1), 5);
+
+            // Adjust pan to zoom towards mouse position
+            const zoomRatio = clampedZoom / prevZoom;
+            setCanvasPan((prevPan) => ({
+              x: mouseX - (mouseX - prevPan.x) * zoomRatio,
+              y: mouseY - (mouseY - prevPan.y) * zoomRatio,
+            }));
+
+            return clampedZoom;
+          });
+        } else {
+          // Regular scroll for panning (two-finger scroll on trackpad)
+          e.preventDefault();
+          setCanvasPan((prev) => ({
+            x: prev.x - e.deltaX,
+            y: prev.y - e.deltaY,
+          }));
+        }
+      };
+
+      container.addEventListener('wheel', handleWheel, { passive: false });
+
+      return () => {
+        container.removeEventListener('wheel', handleWheel);
+      };
+    }, []);
+
+    // Initialize container size and fit canvas to screen
     useEffect(() => {
       const updateSize = () => {
         if (containerRef.current) {
           const rect = containerRef.current.getBoundingClientRect();
           if (rect.width > 0 && rect.height > 0) {
-            setDimensions({
+            setContainerSize({
               width: rect.width,
               height: rect.height,
             });
+
+            // Auto-fit canvas to container on initial load
+            if (!initialFitApplied) {
+              const scaleX = rect.width / VIRTUAL_CANVAS_WIDTH;
+              const scaleY = rect.height / VIRTUAL_CANVAS_HEIGHT;
+              const fitScale = Math.min(scaleX, scaleY, 1); // Don't zoom in beyond 100%
+
+              setCanvasZoom(fitScale);
+              // Center the canvas
+              const offsetX = (rect.width - VIRTUAL_CANVAS_WIDTH * fitScale) / 2;
+              const offsetY = (rect.height - VIRTUAL_CANVAS_HEIGHT * fitScale) / 2;
+              setCanvasPan({ x: Math.max(0, offsetX), y: Math.max(0, offsetY) });
+
+              setInitialFitApplied(true);
+            }
+
             setIsReady(true);
           }
         }
@@ -562,7 +735,7 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(
         clearTimeout(timer2);
         window.removeEventListener("resize", updateSize);
       };
-    }, []);
+    }, [initialFitApplied]);
 
     // Add image to canvas
     const addImageToCanvas = useCallback(async (file: File) => {
@@ -782,17 +955,38 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(
       renderCanvas();
     }, [renderCanvas]);
 
-    // Get point from event
+    // Get point from event (adjusted for zoom and pan)
     const getPointFromEvent = (e: React.PointerEvent<HTMLCanvasElement> | React.MouseEvent): Point => {
       const canvas = canvasRef.current;
       if (!canvas) return { x: 0, y: 0, pressure: 0.5 };
 
       const rect = canvas.getBoundingClientRect();
+      // Adjust for zoom and pan
+      const x = (e.clientX - rect.left - canvasPan.x) / canvasZoom;
+      const y = (e.clientY - rect.top - canvasPan.y) / canvasZoom;
       return {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
+        x,
+        y,
         pressure: 'pressure' in e ? (e as React.PointerEvent).pressure || 0.5 : 0.5,
       };
+    };
+
+    // Reset zoom and pan - fit to container
+    const resetZoomPan = () => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const scaleX = rect.width / VIRTUAL_CANVAS_WIDTH;
+        const scaleY = rect.height / VIRTUAL_CANVAS_HEIGHT;
+        const fitScale = Math.min(scaleX, scaleY, 1);
+
+        setCanvasZoom(fitScale);
+        const offsetX = (rect.width - VIRTUAL_CANVAS_WIDTH * fitScale) / 2;
+        const offsetY = (rect.height - VIRTUAL_CANVAS_HEIGHT * fitScale) / 2;
+        setCanvasPan({ x: Math.max(0, offsetX), y: Math.max(0, offsetY) });
+      } else {
+        setCanvasZoom(1);
+        setCanvasPan({ x: 0, y: 0 });
+      }
     };
 
     // Handle eraser
@@ -1294,6 +1488,8 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(
         style={{
           touchAction: "none",
           minHeight: "400px",
+          overflow: "hidden",
+          backgroundColor: background,
         }}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -1319,217 +1515,241 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(
           </div>
         )}
 
-        {/* Main canvas for drawing */}
-        <canvas
-          ref={canvasRef}
-          className="absolute inset-0 w-full h-full"
+        {/* Zoomable/Pannable canvas container */}
+        <div
+          className="absolute origin-top-left"
           style={{
-            touchAction: "none",
-            cursor: getCursorStyle(),
-            width: dimensions.width,
-            height: dimensions.height,
+            transform: `translate(${canvasPan.x}px, ${canvasPan.y}px) scale(${canvasZoom})`,
+            transformOrigin: 'top left',
+            width: VIRTUAL_CANVAS_WIDTH,
+            height: VIRTUAL_CANVAS_HEIGHT,
           }}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
-          onPointerLeave={handlePointerUp}
-        />
-
-        {/* Overlay elements (images and text) */}
-        {elements.map((element) => (
-          <div
-            key={element.id}
-            className={`absolute ${selectedElement === element.id ? 'ring-2 ring-primary ring-offset-2' : ''}`}
+        >
+          {/* Main canvas for drawing */}
+          <canvas
+            ref={canvasRef}
+            className="absolute inset-0"
             style={{
-              left: element.x,
-              top: element.y,
-              width: element.width,
-              height: element.height,
-              cursor: tool === "select" ? (isDraggingElement && selectedElement === element.id ? "grabbing" : "grab") : "default",
-              pointerEvents: tool === "select" || tool === "text" ? "auto" : "none",
               touchAction: "none",
+              cursor: getCursorStyle(),
+              width: dimensions.width,
+              height: dimensions.height,
             }}
-            onMouseDown={(e) => {
-              if (tool !== "select" || disabled) return;
-              e.stopPropagation();
-              setSelectedElement(element.id);
-              setIsDraggingElement(true);
-              const rect = containerRef.current?.getBoundingClientRect();
-              if (rect) {
-                const point = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-                setDragOffset({ x: point.x - element.x, y: point.y - element.y });
-              }
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
+            onPointerLeave={handlePointerUp}
+          />
 
-              if (element.type === 'text' && e.detail === 2) {
-                setEditingTextId(element.id);
-                setIsDraggingElement(false);
-              }
-            }}
-            onMouseMove={(e) => {
-              if (!isDraggingElement || selectedElement !== element.id || disabled) return;
-              e.stopPropagation();
-              const rect = containerRef.current?.getBoundingClientRect();
-              if (!rect) return;
-              const x = e.clientX - rect.left - dragOffset.x;
-              const y = e.clientY - rect.top - dragOffset.y;
-              setElements((prev) =>
-                prev.map((el) =>
-                  el.id === element.id ? { ...el, x, y } : el
-                )
-              );
-            }}
-            onMouseUp={(e) => {
-              if (disabled) return;
-              e.stopPropagation();
-              if (isDraggingElement) {
-                setIsDraggingElement(false);
-                const newHistory = history.slice(0, historyIndex + 1);
-                newHistory.push({ strokes, elements });
-                setHistory(newHistory);
-                setHistoryIndex(newHistory.length - 1);
-                notifyChange(strokes, elements);
-              }
-            }}
-            // Touch events for mobile dragging
-            onTouchStart={(e) => {
-              if (tool !== "select" || disabled) return;
-              // Only handle single touch for dragging (pinch is handled separately)
-              if (e.touches.length !== 1) return;
-              e.stopPropagation();
-              setSelectedElement(element.id);
-              setIsDraggingElement(true);
-              const touch = e.touches[0];
-              const rect = containerRef.current?.getBoundingClientRect();
-              if (rect) {
-                const point = { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
-                setDragOffset({ x: point.x - element.x, y: point.y - element.y });
-              }
-            }}
-            onTouchMove={(e) => {
-              if (!isDraggingElement || selectedElement !== element.id || disabled) return;
-              // Only handle single touch for dragging
-              if (e.touches.length !== 1) return;
-              e.stopPropagation();
-              e.preventDefault();
-              const touch = e.touches[0];
-              const rect = containerRef.current?.getBoundingClientRect();
-              if (!rect) return;
-              const x = touch.clientX - rect.left - dragOffset.x;
-              const y = touch.clientY - rect.top - dragOffset.y;
-              setElements((prev) =>
-                prev.map((el) =>
-                  el.id === element.id ? { ...el, x, y } : el
-                )
-              );
-            }}
-            onTouchEnd={(e) => {
-              if (disabled) return;
-              e.stopPropagation();
-              if (isDraggingElement) {
-                setIsDraggingElement(false);
-                const newHistory = history.slice(0, historyIndex + 1);
-                newHistory.push({ strokes, elements });
-                setHistory(newHistory);
-                setHistoryIndex(newHistory.length - 1);
-                notifyChange(strokes, elements);
-              }
+          {/* Overlay elements (images and text) - inside zoom container */}
+          {elements.map((element) => (
+            <div
+              key={element.id}
+              className={`absolute ${selectedElement === element.id ? 'ring-2 ring-primary ring-offset-2' : ''}`}
+              style={{
+                left: element.x,
+                top: element.y,
+                width: element.width,
+                height: element.height,
+                cursor: tool === "select" ? (isDraggingElement && selectedElement === element.id ? "grabbing" : "grab") : "default",
+                pointerEvents: tool === "select" || tool === "text" ? "auto" : "none",
+                touchAction: "none",
+              }}
+              onMouseDown={(e) => {
+                if (tool !== "select" || disabled) return;
+                e.stopPropagation();
+                setSelectedElement(element.id);
+                setIsDraggingElement(true);
+                const rect = containerRef.current?.getBoundingClientRect();
+                if (rect) {
+                  const point = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+                  setDragOffset({ x: point.x - element.x, y: point.y - element.y });
+                }
 
-              // Handle double-tap to edit text
-              if (element.type === 'text') {
-                const now = Date.now();
-                const lastTap = lastTapRef.current;
-                if (lastTap && lastTap.id === element.id && now - lastTap.time < 300) {
+                if (element.type === 'text' && e.detail === 2) {
                   setEditingTextId(element.id);
                   setIsDraggingElement(false);
-                  lastTapRef.current = null;
-                } else {
-                  lastTapRef.current = { id: element.id, time: now };
                 }
-              }
-            }}
-          >
-            {element.type === 'image' ? (
-              <img
-                src={element.src}
-                alt="Canvas element"
-                className="w-full h-full object-contain pointer-events-none select-none"
-                draggable={false}
-              />
-            ) : (
-              editingTextId === element.id ? (
-                <textarea
-                  autoFocus
-                  className="w-full h-full bg-transparent border-none outline-none resize-none p-1"
-                  style={{
-                    fontSize: element.fontSize,
-                    fontFamily: element.fontFamily,
-                    color: element.color,
-                    fontWeight: element.bold ? 'bold' : 'normal',
-                    fontStyle: element.italic ? 'italic' : 'normal',
-                  }}
-                  value={element.content}
-                  onChange={(e) => handleTextChange(element.id, e.target.value)}
-                  onBlur={() => handleTextBlur(element.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Escape') {
-                      handleTextBlur(element.id);
-                    }
-                  }}
-                  onClick={(e) => e.stopPropagation()}
+              }}
+              onMouseMove={(e) => {
+                if (!isDraggingElement || selectedElement !== element.id || disabled) return;
+                e.stopPropagation();
+                const rect = containerRef.current?.getBoundingClientRect();
+                if (!rect) return;
+                const x = e.clientX - rect.left - dragOffset.x;
+                const y = e.clientY - rect.top - dragOffset.y;
+                setElements((prev) =>
+                  prev.map((el) =>
+                    el.id === element.id ? { ...el, x, y } : el
+                  )
+                );
+              }}
+              onMouseUp={(e) => {
+                if (disabled) return;
+                e.stopPropagation();
+                if (isDraggingElement) {
+                  setIsDraggingElement(false);
+                  const newHistory = history.slice(0, historyIndex + 1);
+                  newHistory.push({ strokes, elements });
+                  setHistory(newHistory);
+                  setHistoryIndex(newHistory.length - 1);
+                  notifyChange(strokes, elements);
+                }
+              }}
+              // Touch events for mobile dragging
+              onTouchStart={(e) => {
+                if (tool !== "select" || disabled) return;
+                // Only handle single touch for dragging (pinch is handled separately)
+                if (e.touches.length !== 1) return;
+                e.stopPropagation();
+                setSelectedElement(element.id);
+                setIsDraggingElement(true);
+                const touch = e.touches[0];
+                const rect = containerRef.current?.getBoundingClientRect();
+                if (rect) {
+                  const point = { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+                  setDragOffset({ x: point.x - element.x, y: point.y - element.y });
+                }
+              }}
+              onTouchMove={(e) => {
+                if (!isDraggingElement || selectedElement !== element.id || disabled) return;
+                // Only handle single touch for dragging
+                if (e.touches.length !== 1) return;
+                e.stopPropagation();
+                e.preventDefault();
+                const touch = e.touches[0];
+                const rect = containerRef.current?.getBoundingClientRect();
+                if (!rect) return;
+                const x = touch.clientX - rect.left - dragOffset.x;
+                const y = touch.clientY - rect.top - dragOffset.y;
+                setElements((prev) =>
+                  prev.map((el) =>
+                    el.id === element.id ? { ...el, x, y } : el
+                  )
+                );
+              }}
+              onTouchEnd={(e) => {
+                if (disabled) return;
+                e.stopPropagation();
+                if (isDraggingElement) {
+                  setIsDraggingElement(false);
+                  const newHistory = history.slice(0, historyIndex + 1);
+                  newHistory.push({ strokes, elements });
+                  setHistory(newHistory);
+                  setHistoryIndex(newHistory.length - 1);
+                  notifyChange(strokes, elements);
+                }
+
+                // Handle double-tap to edit text
+                if (element.type === 'text') {
+                  const now = Date.now();
+                  const lastTap = lastTapRef.current;
+                  if (lastTap && lastTap.id === element.id && now - lastTap.time < 300) {
+                    setEditingTextId(element.id);
+                    setIsDraggingElement(false);
+                    lastTapRef.current = null;
+                  } else {
+                    lastTapRef.current = { id: element.id, time: now };
+                  }
+                }
+              }}
+            >
+              {element.type === 'image' ? (
+                <img
+                  src={element.src}
+                  alt="Canvas element"
+                  className="w-full h-full object-contain pointer-events-none select-none"
+                  draggable={false}
                 />
               ) : (
-                <div
-                  className="w-full h-full overflow-hidden p-1 whitespace-pre-wrap"
-                  style={{
-                    fontSize: element.fontSize,
-                    fontFamily: element.fontFamily,
-                    color: element.color,
-                    fontWeight: element.bold ? 'bold' : 'normal',
-                    fontStyle: element.italic ? 'italic' : 'normal',
-                  }}
-                >
-                  {element.content || (
-                    <span className="text-muted-foreground italic">Click to edit...</span>
-                  )}
-                </div>
-              )
-            )}
+                editingTextId === element.id ? (
+                  <textarea
+                    autoFocus
+                    className="w-full h-full bg-transparent border-none outline-none resize-none p-1"
+                    style={{
+                      fontSize: element.fontSize,
+                      fontFamily: element.fontFamily,
+                      color: element.color,
+                      fontWeight: element.bold ? 'bold' : 'normal',
+                      fontStyle: element.italic ? 'italic' : 'normal',
+                    }}
+                    value={element.content}
+                    onChange={(e) => handleTextChange(element.id, e.target.value)}
+                    onBlur={() => handleTextBlur(element.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        handleTextBlur(element.id);
+                      }
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : (
+                  <div
+                    className="w-full h-full overflow-hidden p-1 whitespace-pre-wrap"
+                    style={{
+                      fontSize: element.fontSize,
+                      fontFamily: element.fontFamily,
+                      color: element.color,
+                      fontWeight: element.bold ? 'bold' : 'normal',
+                      fontStyle: element.italic ? 'italic' : 'normal',
+                    }}
+                  >
+                    {element.content || (
+                      <span className="text-muted-foreground italic">Click to edit...</span>
+                    )}
+                  </div>
+                )
+              )}
 
-            {/* Selection controls */}
-            {selectedElement === element.id && tool === "select" && !disabled && (
-              <>
-                {/* Delete button */}
-                <button
-                  className="absolute -top-3 -right-3 w-6 h-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteSelectedElement();
-                  }}
-                >
-                  <X className="h-3 w-3" />
-                </button>
+              {/* Selection controls */}
+              {selectedElement === element.id && tool === "select" && !disabled && (
+                <>
+                  {/* Delete button */}
+                  <button
+                    className="absolute -top-3 -right-3 w-6 h-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteSelectedElement();
+                    }}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
 
-                {/* Drag handle */}
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-6 h-6 bg-background border rounded flex items-center justify-center shadow-md cursor-move">
-                  <GripVertical className="h-3 w-3 text-muted-foreground" />
-                </div>
+                  {/* Drag handle */}
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-6 h-6 bg-background border rounded flex items-center justify-center shadow-md cursor-move">
+                    <GripVertical className="h-3 w-3 text-muted-foreground" />
+                  </div>
 
-                {/* Resize handle */}
-                <div
-                  className="absolute -bottom-2 -right-2 w-7 h-7 bg-primary rounded-full cursor-se-resize shadow-md hover:scale-110 transition-transform flex items-center justify-center"
-                  style={{ touchAction: 'none' }}
-                  onMouseDown={(e) => handleResizeStart(e, element.id)}
-                  onTouchStart={(e) => handleResizeTouchStart(e, element.id)}
-                >
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-primary-foreground">
-                    <path d="M10 2L2 10M10 6L6 10M10 10L10 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  </svg>
-                </div>
-              </>
-            )}
+                  {/* Resize handle */}
+                  <div
+                    className="absolute -bottom-2 -right-2 w-7 h-7 bg-primary rounded-full cursor-se-resize shadow-md hover:scale-110 transition-transform flex items-center justify-center"
+                    style={{ touchAction: 'none' }}
+                    onMouseDown={(e) => handleResizeStart(e, element.id)}
+                    onTouchStart={(e) => handleResizeTouchStart(e, element.id)}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-primary-foreground">
+                      <path d="M10 2L2 10M10 6L6 10M10 10L10 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Zoom indicator and reset button - outside zoom container */}
+        <div className="absolute bottom-20 right-4 z-50 flex items-center gap-2">
+          <div className="bg-background/90 backdrop-blur-sm border rounded-lg px-3 py-1.5 shadow-md text-sm font-medium">
+            {Math.round(canvasZoom * 100)}%
           </div>
-        ))}
+          <button
+            onClick={resetZoomPan}
+            className="bg-background/90 backdrop-blur-sm border rounded-lg px-3 py-1.5 shadow-md text-sm font-medium hover:bg-muted transition-colors"
+          >
+            Fit
+          </button>
+        </div>
       </div>
     );
   }
