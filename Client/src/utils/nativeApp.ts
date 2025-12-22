@@ -53,7 +53,7 @@ export function scheduleTaskReminder(
   delaySeconds: number
 ): void {
   scheduleNotificationFn(
-    "⏰ Task Reminder",
+    "Task Reminder",
     `Don't forget: ${taskTitle}`,
     { type: "task_reminder", taskId, route: "/tasks" },
     delaySeconds
@@ -69,7 +69,7 @@ export function scheduleEventReminder(
   delaySeconds: number
 ): void {
   scheduleNotificationFn(
-    "📅 Event Starting Soon",
+    "Event Starting Soon",
     eventTitle,
     { type: "event_reminder", eventId, route: "/events" },
     delaySeconds

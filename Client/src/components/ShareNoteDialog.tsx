@@ -280,6 +280,35 @@ const ShareNoteDialog: React.FC<ShareNoteDialogProps> = ({
 
       if (error) throw error;
 
+      // Create in-app notification for existing users (direct insert as fallback)
+      let notificationCreated = false;
+      if (existingUser) {
+        try {
+          const inviterName = user.user_metadata?.username || user.email?.split("@")[0] || "Someone";
+          const { error: notifError } = await supabase.from("notifications").insert({
+            user_id: existingUser.id,
+            type: "note_share",
+            title: "Note shared with you",
+            message: `${inviterName} shared "${noteTitle}" with you (${invitePermission} access)`,
+            data: {
+              note_id: noteId,
+              share_id: data.id,
+              permission: invitePermission,
+            },
+            is_read: false,
+          });
+
+          if (notifError) {
+            console.error("Failed to create notification:", notifError);
+          } else {
+            notificationCreated = true;
+            console.log("In-app notification created for user:", existingUser.id);
+          }
+        } catch (notifErr) {
+          console.error("Error creating notification:", notifErr);
+        }
+      }
+
       // Send email invite via Edge Function (uses Resend API)
       try {
         const inviteResponse = await fetch(
@@ -299,6 +328,7 @@ const ShareNoteDialog: React.FC<ShareNoteDialogProps> = ({
               inviterEmail: user.email,
               permission: invitePermission,
               inviteToken: data.invite_token,
+              skipNotification: notificationCreated, // Tell edge function we already created notification
             }),
           }
         );

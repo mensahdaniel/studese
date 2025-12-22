@@ -6,7 +6,7 @@ serve(async (req) => {
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    
+
     if (!RESEND_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       throw new Error('Required environment variables are not set');
     }
@@ -32,7 +32,7 @@ serve(async (req) => {
       try {
         // Get user info using admin API
         const { data: user, error: userError } = await supabase.auth.admin.getUserById(task.user_id);
-        
+
         if (userError || !user.user) {
           debugInfo.push({ taskId: task.id, error: 'User not found', userError });
           continue;
@@ -40,7 +40,7 @@ serve(async (req) => {
 
         const userEmail = user.user.email;
         const userName = user.user.user_metadata?.full_name || 'Student';
-        
+
         if (!userEmail) {
           debugInfo.push({ taskId: task.id, error: 'No user email' });
           continue;
@@ -56,9 +56,9 @@ serve(async (req) => {
           body: JSON.stringify({
             from: 'onboarding@resend.dev',
             to: [userEmail],
-            subject: `⏰ TEST Reminder: "${task.title}" is due soon!`,
+            subject: `Reminder: "${task.title}" is due soon!`,
             html: `
-              <h1>Task Due Soon! ⏰</h1>
+              <h1>Task Due Soon!</h1>
               <p>Hi ${userName},</p>
               <p>This is a reminder that you have a task due in the next 24 hours:</p>
               <div style="background: #f3f4f6; padding: 15px; border-left: 4px solid #DC2626; margin: 15px 0;">
@@ -83,7 +83,7 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       success: true,
       message: `Processed ${tasks?.length || 0} tasks, sent ${emailsSent} emails`,
       debug: debugInfo,
@@ -92,10 +92,10 @@ serve(async (req) => {
         emailsSent: emailsSent
       }
     }));
-    
+
   } catch (error) {
-    return new Response(JSON.stringify({ 
-      error: error.message 
+    return new Response(JSON.stringify({
+      error: error.message
     }), { status: 500 });
   }
 });

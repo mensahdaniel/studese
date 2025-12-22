@@ -45,7 +45,7 @@ const Landing = () => {
 
               <p className="text-lg md:text-xl text-muted-foreground max-w-lg leading-relaxed">
                 A minimalist productivity platform designed to help university and college students
-                organize their academic and personal lives in one distraction-free space. ✨
+                organize their academic and personal lives in one distraction-free space.
               </p>
             </div>
 
@@ -91,8 +91,8 @@ const Landing = () => {
                       <div className="text-sm font-medium">Upcoming Tasks</div>
                     </div>
                     <div className="space-y-1 text-xs text-muted-foreground">
-                      <div>✓ Complete lab report</div>
-                      <div>○ Review for midterm</div>
+                      <div>• Complete lab report</div>
+                      <div>• Review for midterm</div>
                     </div>
                   </div>
                 </div>

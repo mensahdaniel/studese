@@ -65,6 +65,30 @@ const NotificationBell: React.FC = () => {
   const [highlightedNotification, setHighlightedNotification] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
+  // Initialize user ID on mount - needed for real-time subscription
+  useEffect(() => {
+    const initUserId = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+      }
+    };
+    initUserId();
+
+    // Also listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        setCurrentUserId(session.user.id);
+      } else {
+        setCurrentUserId(null);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
   // Initialize audio elements
   // notification.mp3 - for general notifications (shares, system messages)
   // alarm.mp3 - for urgent task alarms
@@ -141,19 +165,13 @@ const NotificationBell: React.FC = () => {
 
   // Fetch notifications
   const fetchNotifications = useCallback(async () => {
+    if (!currentUserId) return;
+
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Store user ID for real-time filtering
-      if (!currentUserId) {
-        setCurrentUserId(user.id);
-      }
-
       const { data, error } = await supabase
         .from("notifications")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("user_id", currentUserId)
         .order("created_at", { ascending: false })
         .limit(20);
 
@@ -169,12 +187,19 @@ const NotificationBell: React.FC = () => {
     }
   }, [currentUserId]);
 
-  // Initial fetch and setup real-time subscription
+  // Fetch notifications when user ID is available
   useEffect(() => {
-    fetchNotifications();
+    if (currentUserId) {
+      fetchNotifications();
+    }
+  }, [currentUserId, fetchNotifications]);
 
+  // Setup real-time subscription when we have user ID
+  useEffect(() => {
     // Only set up real-time subscription if we have the user ID
     if (!currentUserId) return;
+
+    console.log("Setting up notification subscription for user:", currentUserId);
 
     // Subscribe to new notifications with user_id filter
     const channel = supabase
@@ -222,12 +247,39 @@ const NotificationBell: React.FC = () => {
           fetchNotifications();
         }
       )
-      .subscribe();
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${currentUserId}`,
+        },
+        (payload) => {
+          const deletedId = payload.old?.id;
+          if (deletedId) {
+            console.log("Notification deleted via real-time:", deletedId);
+            setNotifications((prev) => {
+              const notif = prev.find((n) => n.id === deletedId);
+              if (notif && !notif.is_read) {
+                setUnreadCount((count) => Math.max(0, count - 1));
+              }
+              return prev.filter((n) => n.id !== deletedId);
+            });
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log("Notification subscription status:", status);
+      });
 
     return () => {
+      console.log("Cleaning up notification subscription");
       supabase.removeChannel(channel);
     };
-  }, [fetchNotifications, playNotificationSound, playAlarmSound, currentUserId]);
+    // Note: fetchNotifications is intentionally excluded to avoid re-subscribing on every fetch
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playNotificationSound, playAlarmSound, currentUserId]);
 
   // Refresh notifications when app becomes visible (important for mobile WebView)
   useEffect(() => {
@@ -310,17 +362,53 @@ const NotificationBell: React.FC = () => {
   // Delete notification
   const deleteNotification = async (notificationId: string) => {
     try {
-      const { error } = await supabase
+      console.log("Attempting to delete notification:", notificationId);
+
+      // Verify we have an authenticated session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.error("No authenticated session - cannot delete notification");
+        return;
+      }
+      console.log("Authenticated user:", session.user.id);
+
+      // Optimistically remove from UI first for better UX
+      const notif = notifications.find((n) => n.id === notificationId);
+      setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+      if (notif && !notif.is_read) {
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      }
+
+      // Then delete from database - use .select() to verify rows were actually deleted
+      const { data: deletedRows, error, status, statusText } = await supabase
         .from("notifications")
         .delete()
-        .eq("id", notificationId);
+        .eq("id", notificationId)
+        .eq("user_id", session.user.id)
+        .select();
 
-      if (!error) {
-        const notif = notifications.find((n) => n.id === notificationId);
-        setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
-        if (notif && !notif.is_read) {
-          setUnreadCount((prev) => Math.max(0, prev - 1));
-        }
+      if (error) {
+        console.error("Failed to delete notification from database:", {
+          error,
+          status,
+          statusText,
+          notificationId,
+        });
+        // Re-fetch to restore UI state since delete failed
+        fetchNotifications();
+      } else if (!deletedRows || deletedRows.length === 0) {
+        console.error("Delete returned success but no rows were deleted!", {
+          notificationId,
+          userId: session.user.id,
+          status,
+        });
+        // Re-fetch to restore UI state
+        fetchNotifications();
+      } else {
+        console.log("Notification deleted successfully from database:", {
+          id: notificationId,
+          deletedCount: deletedRows.length,
+        });
       }
     } catch (error) {
       console.error("Error deleting notification:", error);

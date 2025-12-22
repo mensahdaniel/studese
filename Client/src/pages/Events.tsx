@@ -113,7 +113,7 @@ const Events = () => {
     } else {
       toast({
         title: event.title,
-        description: `📅 ${formatDate(event.date)}\n📍 ${event.location || "Location TBA"}`,
+        description: `${formatDate(event.date)} - ${event.location || "Location TBA"}`,
       });
     }
   };
@@ -315,53 +315,54 @@ const Events = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
-      <div className="container mx-auto px-4 py-6 max-w-7xl">
-        {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-8">
-          <div className="space-y-1">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-gradient-to-br from-primary/20 to-primary/5 rounded-xl">
-                <CalendarDays className="h-7 w-7 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold tracking-tight">Events</h1>
-                <p className="text-muted-foreground">
-                  Discover {events.length} events happening around you
-                </p>
-              </div>
+      <div className="px-4 sm:px-6 py-4 sm:py-6 max-w-7xl mx-auto pb-24 sm:pb-6">
+        {/* Header - Compact on mobile */}
+        <div className="flex items-start justify-between gap-3 mb-5 sm:mb-8">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+            <div className="p-1.5 sm:p-2.5 bg-gradient-to-br from-primary/20 to-primary/5 rounded-lg sm:rounded-xl shrink-0">
+              <CalendarDays className="h-5 w-5 sm:h-7 sm:w-7 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-3xl font-bold tracking-tight">Events</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                Discover {events.length} events happening around you
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Stats Pills */}
-            <div className="hidden sm:flex items-center gap-2">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 rounded-full">
-                <TrendingUp className="h-4 w-4 text-emerald-600" />
-                <span className="text-sm font-medium text-emerald-600">{upcomingCount} upcoming</span>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 rounded-full">
-                <Clock className="h-4 w-4 text-blue-600" />
-                <span className="text-sm font-medium text-blue-600">{thisWeekCount} this week</span>
-              </div>
-            </div>
+          <Button
+            onClick={() => setShowAddDialog(true)}
+            size="sm"
+            className="gap-1.5 sm:gap-2 h-9 sm:h-10 shadow-lg shrink-0"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Add Event</span>
+            <span className="sm:hidden">Add</span>
+          </Button>
+        </div>
 
-            <Button onClick={() => setShowAddDialog(true)} className="gap-2 shadow-lg">
-              <Plus className="h-4 w-4" />
-              Add Event
-            </Button>
+        {/* Stats Pills - Hidden on mobile, shown below on mobile */}
+        <div className="hidden sm:flex items-center gap-2 mb-6">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 rounded-full">
+            <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">{upcomingCount} upcoming</span>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 rounded-full">
+            <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <span className="text-sm font-medium text-blue-600 dark:text-blue-400">{thisWeekCount} this week</span>
           </div>
         </div>
 
         {/* Search and Categories */}
-        <div className="space-y-4 mb-8">
+        <div className="space-y-3 sm:space-y-4 mb-5 sm:mb-8">
           {/* Search Bar */}
-          <div className="relative max-w-md">
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search events..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 h-11 bg-background/80 backdrop-blur-sm border-muted-foreground/20"
+              className="pl-10 h-10 sm:h-11 bg-background/80 backdrop-blur-sm border-muted-foreground/20"
             />
             {searchTerm && (
               <Button
@@ -375,8 +376,8 @@ const Events = () => {
             )}
           </div>
 
-          {/* Category Pills */}
-          <ScrollArea className="w-full">
+          {/* Category Pills - Horizontal scroll */}
+          <ScrollArea className="w-full whitespace-nowrap">
             <div className="flex gap-2 pb-2">
               {categories.map((category) => {
                 const Icon = category.icon;
@@ -393,16 +394,16 @@ const Events = () => {
                     size="sm"
                     onClick={() => setSelectedCategory(category.id)}
                     className={cn(
-                      "gap-2 shrink-0 transition-all",
+                      "gap-1.5 sm:gap-2 shrink-0 transition-all h-9",
                       isSelected && "shadow-md"
                     )}
                   >
-                    <Icon className="h-4 w-4" />
-                    {category.name}
+                    <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    <span className="text-xs sm:text-sm">{category.name}</span>
                     <Badge
                       variant="secondary"
                       className={cn(
-                        "ml-1 h-5 min-w-5 px-1.5 text-xs",
+                        "ml-0.5 h-5 min-w-5 px-1.5 text-[10px] sm:text-xs",
                         isSelected && "bg-primary-foreground/20 text-primary-foreground"
                       )}
                     >
@@ -417,7 +418,7 @@ const Events = () => {
 
         {/* Events Grid */}
         {filteredEvents.length > 0 ? (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {filteredEvents.map((event) => {
               const timeInfo = getTimeRemaining(event.date);
               const categoryInfo = getCategoryInfo(event.category);
@@ -428,9 +429,10 @@ const Events = () => {
                 <Card
                   key={event.id}
                   className={cn(
-                    "group relative overflow-hidden cursor-pointer transition-all duration-300",
-                    "hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-1",
-                    "border-0 bg-card/80 backdrop-blur-sm",
+                    "group relative overflow-hidden cursor-pointer transition-all duration-200",
+                    "sm:hover:shadow-xl sm:hover:shadow-primary/5 sm:hover:-translate-y-1",
+                    "active:scale-[0.98] touch-manipulation",
+                    "border bg-card/80 backdrop-blur-sm",
                     timeInfo.isToday && "ring-2 ring-primary/20"
                   )}
                   onClick={() => handleEventClick(event)}
@@ -444,61 +446,61 @@ const Events = () => {
                     )}
                   />
 
-                  <CardContent className="p-5">
-                    <div className="flex gap-4">
+                  <CardContent className="p-4 sm:p-5">
+                    <div className="flex gap-3 sm:gap-4">
                       {/* Date Block */}
                       <div
                         className={cn(
-                          "flex flex-col items-center justify-center min-w-14 h-14 rounded-xl",
+                          "flex flex-col items-center justify-center min-w-12 sm:min-w-14 h-12 sm:h-14 rounded-lg sm:rounded-xl",
                           "bg-gradient-to-br from-muted/80 to-muted/40",
                           "group-hover:from-primary/10 group-hover:to-primary/5",
-                          "transition-colors duration-300"
+                          "transition-colors duration-300 shrink-0"
                         )}
                       >
-                        <span className="text-xs font-medium text-muted-foreground uppercase">
+                        <span className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase">
                           {dateInfo.month}
                         </span>
-                        <span className="text-xl font-bold leading-none">{dateInfo.day}</span>
+                        <span className="text-lg sm:text-xl font-bold leading-none">{dateInfo.day}</span>
                       </div>
 
                       {/* Content */}
-                      <div className="flex-1 min-w-0 space-y-2">
+                      <div className="flex-1 min-w-0 space-y-1.5 sm:space-y-2">
                         {/* Category & Time */}
-                        <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
                           <Badge
                             variant="secondary"
                             className={cn(
-                              "gap-1.5 font-medium",
+                              "gap-1 sm:gap-1.5 font-medium text-[10px] sm:text-xs",
                               categoryInfo.bgColor,
                               categoryInfo.color
                             )}
                           >
-                            <CategoryIcon className="h-3 w-3" />
+                            <CategoryIcon className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                             {categoryInfo.label}
                           </Badge>
 
                           <Badge
                             variant="outline"
                             className={cn(
-                              "text-xs font-medium shrink-0",
+                              "text-[10px] sm:text-xs font-medium shrink-0",
                               timeInfo.isUpcoming
-                                ? "border-emerald-500/30 text-emerald-600 bg-emerald-500/5"
+                                ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/5"
                                 : "border-muted-foreground/30 text-muted-foreground"
                             )}
                           >
-                            <Clock className="h-3 w-3 mr-1" />
+                            <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-1" />
                             {timeInfo.text}
                           </Badge>
                         </div>
 
                         {/* Title */}
-                        <h3 className="font-semibold text-base leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+                        <h3 className="font-semibold text-sm sm:text-base leading-tight line-clamp-2 group-hover:text-primary transition-colors">
                           {event.title}
                         </h3>
 
-                        {/* Description */}
+                        {/* Description - Hide on mobile for compact view */}
                         {event.description && (
-                          <p className="text-sm text-muted-foreground line-clamp-2">
+                          <p className="hidden sm:block text-sm text-muted-foreground line-clamp-2">
                             {event.description}
                           </p>
                         )}
@@ -506,26 +508,26 @@ const Events = () => {
                     </div>
 
                     {/* Footer */}
-                    <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-between">
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1.5">
-                          <Calendar className="h-3.5 w-3.5" />
+                    <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-border/50 flex items-center justify-between">
+                      <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
+                        <div className="flex items-center gap-1 sm:gap-1.5">
+                          <Calendar className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                           <span>{formatDate(event.date)}</span>
                         </div>
                       </div>
                     </div>
 
                     {event.location && (
-                      <div className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
-                        <MapPin className="h-3.5 w-3.5 shrink-0" />
+                      <div className="mt-1.5 sm:mt-2 flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm text-muted-foreground">
+                        <MapPin className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
                         <span className="truncate">{event.location}</span>
                       </div>
                     )}
 
-                    {/* Hover Action */}
+                    {/* Hover Action - Hidden on mobile */}
                     <div
                       className={cn(
-                        "absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100",
+                        "hidden sm:block absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100",
                         "transition-all duration-300 group-hover:translate-x-0 translate-x-2"
                       )}
                     >
@@ -540,21 +542,21 @@ const Events = () => {
           </div>
         ) : (
           /* Empty State */
-          <Card className="py-16 border-dashed bg-muted/20">
-            <CardContent className="text-center">
-              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                <CalendarDays className="h-8 w-8 text-muted-foreground" />
+          <Card className="py-12 sm:py-16 border-dashed bg-muted/20">
+            <CardContent className="text-center px-4">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                <CalendarDays className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground" />
               </div>
-              <h3 className="text-xl font-semibold mb-2">
+              <h3 className="text-lg sm:text-xl font-semibold mb-2">
                 {searchTerm ? "No events found" : "No events yet"}
               </h3>
-              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
                 {searchTerm
-                  ? "Try adjusting your search terms or changing the category filter"
+                  ? "Try adjusting your search or category filter"
                   : "Be the first to add an event and share it with the community"}
               </p>
               {!searchTerm && (
-                <Button onClick={() => setShowAddDialog(true)} className="gap-2">
+                <Button onClick={() => setShowAddDialog(true)} size="default" className="gap-2">
                   <Plus className="h-4 w-4" />
                   Create Event
                 </Button>
@@ -563,17 +565,17 @@ const Events = () => {
           </Card>
         )}
 
-        {/* Quick Stats - Mobile */}
-        <div className="sm:hidden mt-6">
-          <Card className="bg-gradient-to-r from-primary/5 via-background to-primary/5">
+        {/* Quick Stats - Mobile Only */}
+        <div className="sm:hidden mt-5">
+          <Card className="bg-gradient-to-r from-primary/5 via-background to-primary/5 border">
             <CardContent className="p-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-primary">{upcomingCount}</div>
+                  <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{upcomingCount}</div>
                   <p className="text-xs text-muted-foreground">Upcoming</p>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">{thisWeekCount}</div>
+                  <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{thisWeekCount}</div>
                   <p className="text-xs text-muted-foreground">This Week</p>
                 </div>
               </div>

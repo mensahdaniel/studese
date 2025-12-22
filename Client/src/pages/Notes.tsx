@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   Plus,
   Search,
@@ -23,7 +24,8 @@ import {
   User,
   Loader2,
   PinOff,
-  FolderOpen
+  FolderOpen,
+  Check
 } from "lucide-react";
 
 import { supabase } from "@/utils/supabase";
@@ -44,11 +46,11 @@ type Note = {
 
 // Category configuration
 const CATEGORIES = [
-  { id: "all", name: "All Notes", icon: FolderOpen, color: "bg-gray-500" },
-  { id: "academic", name: "Academic", icon: GraduationCap, color: "bg-blue-500" },
-  { id: "study", name: "Study Groups", icon: BookOpen, color: "bg-green-500" },
-  { id: "research", name: "Research", icon: FlaskConical, color: "bg-amber-500" },
-  { id: "personal", name: "Personal", icon: User, color: "bg-purple-500" },
+  { id: "all", name: "All", fullName: "All Notes", icon: FolderOpen, color: "bg-gray-500" },
+  { id: "academic", name: "Academic", fullName: "Academic", icon: GraduationCap, color: "bg-blue-500" },
+  { id: "study", name: "Study", fullName: "Study Groups", icon: BookOpen, color: "bg-green-500" },
+  { id: "research", name: "Research", fullName: "Research", icon: FlaskConical, color: "bg-amber-500" },
+  { id: "personal", name: "Personal", fullName: "Personal", icon: User, color: "bg-purple-500" },
 ];
 
 const Notes = () => {
@@ -134,7 +136,7 @@ const Notes = () => {
 
     if (days === 0) return "Today";
     if (days === 1) return "Yesterday";
-    if (days < 7) return `${days} days ago`;
+    if (days < 7) return `${days}d ago`;
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
@@ -178,7 +180,7 @@ const Notes = () => {
     return (
       <Card
         className={cn(
-          "group cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-1 overflow-hidden",
+          "group cursor-pointer transition-all duration-200 active:scale-[0.98] hover:shadow-lg sm:hover:-translate-y-1 overflow-hidden touch-manipulation",
           isPinned && "ring-2 ring-primary/20"
         )}
         onClick={() => navigate(`/notes/${note.id}`)}
@@ -193,12 +195,12 @@ const Notes = () => {
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
-              <FileText className="h-12 w-12 text-muted-foreground/30" />
+              <FileText className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground/30" />
             </div>
           )}
 
-          {/* Overlay on hover */}
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
+          {/* Overlay on hover - hidden on mobile */}
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-200 hidden sm:flex items-center justify-center opacity-0 group-hover:opacity-100">
             <Button variant="secondary" size="sm" className="gap-2">
               <Edit className="h-4 w-4" />
               Open
@@ -217,36 +219,36 @@ const Notes = () => {
             <Badge
               variant="secondary"
               className={cn(
-                "text-white text-xs shadow-md",
+                "text-white text-[10px] sm:text-xs shadow-md",
                 category.color
               )}
             >
-              <CategoryIcon className="h-3 w-3 mr-1" />
-              {category.name}
+              <CategoryIcon className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-1" />
+              <span className="hidden xs:inline">{category.name}</span>
             </Badge>
           </div>
         </div>
 
         {/* Card content */}
-        <CardContent className="p-4">
+        <CardContent className="p-3 sm:p-4">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-sm truncate group-hover:text-primary transition-colors">
                 {note.title || "Untitled Note"}
               </h3>
-              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+              <p className="text-[11px] sm:text-xs text-muted-foreground flex items-center gap-1 mt-1">
                 <Clock className="h-3 w-3" />
                 {formatDate(note.updated_at || note.created_at || note.date)}
               </p>
             </div>
 
-            {/* Actions menu */}
+            {/* Actions menu - always visible on mobile */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="h-8 w-8 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0"
                 >
                   <MoreVertical className="h-4 w-4" />
                 </Button>
@@ -287,134 +289,134 @@ const Notes = () => {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="p-6 space-y-6 max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-xl">
-                <FileText className="h-7 w-7 text-primary" />
+      <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 max-w-7xl mx-auto pb-24 sm:pb-6">
+        {/* Header - Compact on mobile */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg sm:rounded-xl shrink-0">
+                <FileText className="h-5 w-5 sm:h-7 sm:w-7 text-primary" />
               </div>
-              Notes
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              {notes.length} {notes.length === 1 ? "note" : "notes"} in your collection
-            </p>
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-3xl font-bold truncate">Notes</h1>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  {notes.length} {notes.length === 1 ? "note" : "notes"}
+                </p>
+              </div>
+            </div>
           </div>
-          <Link to="/notes/new">
-            <Button size="lg" className="gap-2 shadow-lg hover:shadow-xl transition-shadow">
-              <Plus className="h-5 w-5" />
-              New Note
+          <Link to="/notes/new" className="shrink-0">
+            <Button size="sm" className="gap-1.5 sm:gap-2 h-9 sm:h-10 shadow-lg">
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">New Note</span>
+              <span className="sm:hidden">New</span>
             </Button>
           </Link>
         </div>
 
-        {/* Search and View Controls */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
+        {/* Search and Controls - Stacked on mobile */}
+        <div className="space-y-3">
+          {/* Search Bar */}
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search notes..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 h-11"
+              className="pl-10 h-10 sm:h-11"
             />
           </div>
-          <div className="flex items-center gap-2">
+
+          {/* Sort and View Toggle */}
+          <div className="flex items-center justify-between gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="gap-2">
+                <Button variant="outline" size="sm" className="gap-1.5 h-9">
                   <SortAsc className="h-4 w-4" />
-                  Sort
+                  <span className="hidden sm:inline">Sort</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="start">
                 <DropdownMenuItem onClick={() => setSortBy("date")}>
                   <Clock className="h-4 w-4 mr-2" />
                   Date (newest)
-                  {sortBy === "date" && <span className="ml-auto">✓</span>}
+                  {sortBy === "date" && <Check className="ml-auto h-4 w-4" />}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setSortBy("title")}>
                   <SortAsc className="h-4 w-4 mr-2" />
                   Title (A-Z)
-                  {sortBy === "title" && <span className="ml-auto">✓</span>}
+                  {sortBy === "title" && <Check className="ml-auto h-4 w-4" />}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <div className="flex items-center border rounded-lg p-1">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={viewMode === "grid" ? "secondary" : "ghost"}
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => setViewMode("grid")}
-                  >
-                    <Grid3X3 className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Grid view</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={viewMode === "list" ? "secondary" : "ghost"}
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => setViewMode("list")}
-                  >
-                    <List className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>List view</TooltipContent>
-              </Tooltip>
+            <div className="flex items-center border rounded-lg p-0.5">
+              <Button
+                variant={viewMode === "grid" ? "secondary" : "ghost"}
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setViewMode("grid")}
+              >
+                <Grid3X3 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === "list" ? "secondary" : "ghost"}
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setViewMode("list")}
+              >
+                <List className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </div>
 
-        {/* Category Pills */}
-        <div className="flex flex-wrap gap-2">
-          {categoryStats.map((cat) => {
-            const Icon = cat.icon;
-            return (
-              <Button
-                key={cat.id}
-                variant={selectedCategory === cat.id ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedCategory(cat.id)}
-                className={cn(
-                  "gap-2 transition-all",
-                  selectedCategory === cat.id && "shadow-md"
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {cat.name}
-                <Badge
-                  variant="secondary"
+        {/* Category Pills - Horizontal scroll on mobile */}
+        <ScrollArea className="w-full whitespace-nowrap">
+          <div className="flex gap-2 pb-2">
+            {categoryStats.map((cat) => {
+              const Icon = cat.icon;
+              const isSelected = selectedCategory === cat.id;
+              return (
+                <Button
+                  key={cat.id}
+                  variant={isSelected ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedCategory(cat.id)}
                   className={cn(
-                    "ml-1 h-5 min-w-5 px-1.5",
-                    selectedCategory === cat.id && "bg-primary-foreground/20 text-primary-foreground"
+                    "gap-1.5 sm:gap-2 transition-all shrink-0 h-9",
+                    isSelected && "shadow-md"
                   )}
                 >
-                  {cat.count}
-                </Badge>
-              </Button>
-            );
-          })}
-        </div>
+                  <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <span className="text-xs sm:text-sm">{cat.name}</span>
+                  <Badge
+                    variant="secondary"
+                    className={cn(
+                      "ml-0.5 h-5 min-w-5 px-1.5 text-[10px] sm:text-xs",
+                      isSelected && "bg-primary-foreground/20 text-primary-foreground"
+                    )}
+                  >
+                    {cat.count}
+                  </Badge>
+                </Button>
+              );
+            })}
+          </div>
+          <ScrollBar orientation="horizontal" className="invisible" />
+        </ScrollArea>
 
         {/* Pinned Notes Section */}
         {pinnedNotes.length > 0 && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold flex items-center gap-2 text-muted-foreground">
-              <Pin className="h-4 w-4" />
+          <div className="space-y-3">
+            <h2 className="text-sm sm:text-base font-semibold flex items-center gap-2 text-muted-foreground">
+              <Pin className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               Pinned
             </h2>
             <div className={cn(
-              "grid gap-4",
+              "grid gap-3 sm:gap-4",
               viewMode === "grid"
-                ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+                ? "grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
                 : "grid-cols-1"
             )}>
               {pinnedNotes.map((note) => (
@@ -426,17 +428,17 @@ const Notes = () => {
 
         {/* All Notes Section */}
         {regularNotes.length > 0 && (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {pinnedNotes.length > 0 && (
-              <h2 className="text-lg font-semibold flex items-center gap-2 text-muted-foreground">
-                <FileText className="h-4 w-4" />
+              <h2 className="text-sm sm:text-base font-semibold flex items-center gap-2 text-muted-foreground">
+                <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 All Notes
               </h2>
             )}
             <div className={cn(
-              "grid gap-4",
+              "grid gap-3 sm:gap-4",
               viewMode === "grid"
-                ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+                ? "grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
                 : "grid-cols-1"
             )}>
               {regularNotes.map((note) => (
@@ -448,24 +450,24 @@ const Notes = () => {
 
         {/* Empty State */}
         {filteredNotes.length === 0 && (
-          <Card className="py-16 border-dashed">
-            <CardContent className="text-center">
-              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                <FileText className="h-8 w-8 text-muted-foreground" />
+          <Card className="py-12 sm:py-16 border-dashed">
+            <CardContent className="text-center px-4">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                <FileText className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground" />
               </div>
-              <h3 className="text-xl font-semibold mb-2">
+              <h3 className="text-lg sm:text-xl font-semibold mb-2">
                 {searchTerm ? "No notes found" : "Start your first note"}
               </h3>
-              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
                 {searchTerm
-                  ? "Try adjusting your search terms or changing the category filter"
-                  : "Create your first note and start capturing your ideas with our beautiful canvas editor"
+                  ? "Try adjusting your search or category filter"
+                  : "Create your first note and start capturing your ideas"
                 }
               </p>
               {!searchTerm && (
                 <Link to="/notes/new">
-                  <Button size="lg" className="gap-2">
-                    <Plus className="h-5 w-5" />
+                  <Button size="default" className="gap-2">
+                    <Plus className="h-4 w-4" />
                     Create Your First Note
                   </Button>
                 </Link>

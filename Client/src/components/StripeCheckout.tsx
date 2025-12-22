@@ -10,7 +10,7 @@ export default function StripeCheckout() {
 
   const handleSubscription = async () => {
     setLoading(true);
-    
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -30,7 +30,7 @@ export default function StripeCheckout() {
           userId: user.id,
           userEmail: user.email,
           priceId: 'price_1SFdcFDu5SBC5lwjxQQXyKsn',
-          // ✅ USES CONFIG INSTEAD OF HARDCODED URL
+          // Uses config instead of hardcoded URL
           successUrl: `${BASE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
           cancelUrl: `${BASE_URL}/pricing`,
         }),
@@ -89,7 +89,7 @@ export default function StripeCheckout() {
               <div className="space-y-3">
                 {[
                   "Full dashboard access",
-                  "Unlimited notes & tasks", 
+                  "Unlimited notes & tasks",
                   "Smart calendar integration",
                   "Priority email support",
                   "Early access to new features",
@@ -103,7 +103,7 @@ export default function StripeCheckout() {
               </div>
 
               {/* Subscribe Button */}
-              <Button 
+              <Button
                 onClick={handleSubscription}
                 disabled={loading}
                 className="w-full"

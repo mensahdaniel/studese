@@ -20,6 +20,7 @@ interface InviteRequest {
   inviterEmail: string;
   permission: "view" | "edit";
   inviteToken: string;
+  skipNotification?: boolean; // If true, notification was already created on client
 }
 
 /**
@@ -140,6 +141,7 @@ serve(async (req) => {
       inviterEmail,
       permission,
       inviteToken,
+      skipNotification = false,
     }: InviteRequest = await req.json();
 
     // Validate required fields
@@ -168,9 +170,9 @@ serve(async (req) => {
       ? `${APP_URL}/notes/${noteId}`
       : `${APP_URL}/login?invite=${inviteToken}&redirect=/notes/${noteId}`;
 
-    // Create in-app notification for existing users
-    let notificationCreated = false;
-    if (isExistingUser) {
+    // Create in-app notification for existing users (skip if already created on client)
+    let notificationCreated = skipNotification;
+    if (isExistingUser && !skipNotification) {
       notificationCreated = await createInAppNotification(
         supabase,
         inviteeEmail,
@@ -217,13 +219,13 @@ The StudEse Team
     </div>
 
     <h3 style="margin: 0 0 16px; color: #1a1a2e; text-align: center;">
-      📝 ${displayName} shared a note with you
+      ${displayName} shared a note with you
     </h3>
 
     <div style="background: #f8fafc; border-radius: 8px; padding: 20px; text-align: center; margin-bottom: 24px;">
       <p style="margin: 0 0 12px; font-size: 18px; font-weight: 600; color: #1a1a2e;">${noteTitle}</p>
       <span style="display: inline-block; padding: 6px 14px; background: ${permission === 'edit' ? '#dbeafe' : '#f0fdf4'}; color: ${permission === 'edit' ? '#2563eb' : '#16a34a'}; border-radius: 20px; font-size: 13px; font-weight: 500;">
-        ${permission === 'edit' ? '✏️ Can Edit' : '👁️ View Only'}
+        ${permission === 'edit' ? 'Can Edit' : 'View Only'}
       </span>
     </div>
 

@@ -265,7 +265,7 @@ export async function sendPushTokenToServer(
  */
 export async function sendTestNotification(): Promise<void> {
   await scheduleLocalNotification({
-    title: 'Test Notification 🎉',
+    title: 'Test Notification',
     body: 'Push notifications are working!',
     data: { type: 'test' },
   });

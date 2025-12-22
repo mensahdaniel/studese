@@ -98,7 +98,7 @@ const NoteEditor = () => {
 
   // Auto-save timer ref
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const AUTO_SAVE_DELAY = 10000; // 10 seconds of idle time
+  const AUTO_SAVE_DELAY = 3000; // 1 seconds of idle time
 
   // Fetch user and note data
   useEffect(() => {

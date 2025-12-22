@@ -28,9 +28,9 @@ serve(async (req) => {
   try {
     const { userId, userEmail, priceId } = await req.json();
 
-    // ✅ CORRECT: Use your actual frontend URL
-    const frontendUrl = 'http://localhost:8080'; // ← i will update this if we deploy 
-    
+    // Use your actual frontend URL
+    const frontendUrl = 'http://localhost:8080'; // ← i will update this if we deploy
+
     console.log('Creating checkout session for:', userEmail);
 
     // Create Stripe checkout session

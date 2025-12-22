@@ -225,7 +225,7 @@ export async function sendTaskReminderNotification(
 ): Promise<{ success: boolean; error?: string }> {
   return sendPushNotification(
     {
-      title: "⏰ Task Reminder",
+      title: "Task Reminder",
       body: `Don't forget: ${taskTitle}`,
       data: {
         type: "task_reminder",
@@ -250,7 +250,7 @@ export async function sendEventReminderNotification(
 ): Promise<{ success: boolean; error?: string }> {
   return sendPushNotification(
     {
-      title: "📅 Event Starting Soon",
+      title: "Event Starting Soon",
       body: `${eventTitle} starts ${startsIn}`,
       data: {
         type: "event_reminder",
@@ -275,7 +275,7 @@ export async function sendShareInviteNotification(
 ): Promise<{ success: boolean; error?: string }> {
   return sendPushNotification(
     {
-      title: "📝 Note Shared With You",
+      title: "Note Shared With You",
       body: `${sharedByName} shared "${noteTitle}" with you`,
       data: {
         type: "share_invite",

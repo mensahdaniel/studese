@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/utils/supabase';
+import { CheckCircle, AlertCircle } from 'lucide-react';
 
 export default function Success() {
   const [searchParams] = useSearchParams();
@@ -12,7 +13,7 @@ export default function Success() {
     console.log('Success page loaded');
     const sessionId = searchParams.get('session_id');
     console.log('Session ID from URL:', sessionId);
-    
+
     if (sessionId) {
       console.log('Starting verification...');
       verifySubscription(sessionId);
@@ -27,16 +28,16 @@ export default function Success() {
     try {
       console.log('Getting current user...');
       const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
+
       console.log('Current user:', user);
-      
+
       if (!user) {
         setMessage('Error: No user found. Please log in again.');
         setLoading(false);
         return;
       }
 
-      // ✅ CHECK IF PROFILE EXISTS
+      // CHECK IF PROFILE EXISTS
       console.log('Checking if profile exists...');
       const { data: existingProfile, error: checkError } = await supabase
         .from('profiles')
@@ -70,8 +71,8 @@ export default function Success() {
         }
 
         console.log('New profile created:', newProfile);
-        setMessage('🎉 Payment Successful! Welcome to Studese Pro!');
-        
+        setMessage('Payment Successful! Welcome to Studese Pro!');
+
         setTimeout(() => {
           console.log('Redirecting to dashboard...');
           navigate('/dashboard');
@@ -80,11 +81,11 @@ export default function Success() {
       }
 
       console.log('Marking user as paid...', user.id);
-      
+
       // MARK USER AS PAID IN THE DATABASE
       const { data, error: updateError } = await supabase
         .from('profiles')
-        .update({ 
+        .update({
           is_paid: true,
           updated_at: new Date().toISOString()
         })
@@ -99,15 +100,15 @@ export default function Success() {
         setMessage('Payment verified but error updating account. Please contact support.');
       } else {
         console.log('User marked as paid successfully! Redirecting...');
-        setMessage('🎉 Payment Successful! Welcome to Studese Pro!');
-        
+        setMessage('Payment Successful! Welcome to Studese Pro!');
+
         // Redirect to dashboard after 2 seconds
         setTimeout(() => {
           console.log('Redirecting to dashboard...');
           navigate('/dashboard');
         }, 2000);
       }
-      
+
     } catch (error) {
       console.error('Error in verifySubscription:', error);
       setMessage('Error verifying payment. Please contact support.');
@@ -126,7 +127,13 @@ export default function Success() {
           </div>
         ) : (
           <div>
-            <div className="text-6xl mb-4">🎉</div>
+            <div className="mb-4 flex justify-center">
+              {message.includes('Successful') ? (
+                <CheckCircle className="h-16 w-16 text-green-500" />
+              ) : (
+                <AlertCircle className="h-16 w-16 text-yellow-500" />
+              )}
+            </div>
             <h1 className="text-2xl font-bold text-gray-900 mb-2">
               {message.includes('Successful') ? 'Welcome to Studese Pro!' : 'Payment Issue'}
             </h1>

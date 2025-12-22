@@ -3,14 +3,14 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 serve(async (req) => {
   try {
     const { email, name } = await req.json();
-    
+
     // Use environment variable instead of hardcoded key
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
-    
+
     if (!RESEND_API_KEY) {
       throw new Error('RESEND_API_KEY environment variable is not set');
     }
-    
+
     const emailResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -20,7 +20,7 @@ serve(async (req) => {
       body: JSON.stringify({
         from: 'onboarding@resend.dev',
         to: [email],
-        subject: `Welcome to Studese, ${name}! 🎉`,
+        subject: `Welcome to Studese, ${name}!`,
         html: `
           <h1>Welcome to Studese!</h1>
           <p>Hi <strong>${name}</strong>,</p>

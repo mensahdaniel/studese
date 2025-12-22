@@ -238,7 +238,7 @@ Deno.serve(async (req: Request) => {
 
     for (const event of eventsToNotify) {
       const eventTime = formatEventTime(event.start_time);
-      const title = "📅 Event Starting Soon!";
+      const title = "Event Starting Soon!";
       let body = `"${event.title}" starts at ${eventTime}`;
 
       if (event.location) {
