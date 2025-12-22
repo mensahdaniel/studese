@@ -29,19 +29,19 @@ export default function StripeCheckout() {
         body: JSON.stringify({
           userId: user.id,
           userEmail: user.email,
-          priceId: 'price_1SFdcFDu5SBC5lwjxQQXyKsn',
-          // Uses config instead of hardcoded URL
+          // priceId is read from STRIPE_PRO_PRICE_ID in the edge function
           successUrl: `${BASE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
           cancelUrl: `${BASE_URL}/pricing`,
         }),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
       const result = await response.json();
       console.log('Response:', result);
+
+      if (!response.ok) {
+        console.error('Checkout error details:', result);
+        throw new Error(result.details || result.error || `HTTP error! status: ${response.status}`);
+      }
 
       if (result.sessionId && result.url) {
         window.location.href = result.url;

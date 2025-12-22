@@ -56,10 +56,14 @@ CREATE POLICY "Users can delete own notifications"
     ON notifications FOR DELETE
     USING (auth.uid() = user_id);
 
--- Allow service role to insert notifications (for edge functions)
-CREATE POLICY "Service role can insert notifications"
+-- Allow authenticated users to insert notifications for any user
+-- This is needed for features like note sharing where User A creates a notification for User B
+DROP POLICY IF EXISTS "Service role can insert notifications" ON notifications;
+DROP POLICY IF EXISTS "Authenticated users can insert notifications" ON notifications;
+
+CREATE POLICY "Authenticated users can insert notifications"
     ON notifications FOR INSERT
-    WITH CHECK (true);
+    WITH CHECK (auth.uid() IS NOT NULL);
 
 -- Also add email_sent column to note_shares if not exists
 ALTER TABLE note_shares

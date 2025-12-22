@@ -132,10 +132,44 @@ WHERE id NOT IN (SELECT id FROM profiles)
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================
--- 8. Add helpful comments
+-- 8. Secure function to lookup user ID by email (for sharing)
+-- ============================================
+
+-- This function allows looking up a user's ID by email without exposing full profile data
+-- It uses SECURITY DEFINER to bypass RLS safely
+CREATE OR REPLACE FUNCTION public.get_user_id_by_email(lookup_email TEXT)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  user_id UUID;
+BEGIN
+  -- Only allow authenticated users to call this function
+  IF auth.uid() IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  -- Look up user ID by email (case-insensitive)
+  SELECT id INTO user_id
+  FROM profiles
+  WHERE LOWER(email) = LOWER(lookup_email)
+  LIMIT 1;
+
+  RETURN user_id;
+END;
+$$;
+
+-- Grant execute permission to authenticated users
+GRANT EXECUTE ON FUNCTION public.get_user_id_by_email(TEXT) TO authenticated;
+
+-- ============================================
+-- 9. Add helpful comments
 -- ============================================
 
 COMMENT ON TABLE profiles IS 'User profiles with subscription/payment information';
+COMMENT ON FUNCTION public.get_user_id_by_email IS 'Securely lookup user ID by email for sharing features';
 COMMENT ON COLUMN profiles.is_paid IS 'Whether user has an active paid subscription';
 COMMENT ON COLUMN profiles.subscription_status IS 'Current subscription status: inactive, active, cancelled, past_due';
 COMMENT ON COLUMN profiles.customer_id IS 'Stripe customer ID for payment processing';

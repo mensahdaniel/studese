@@ -22,6 +22,7 @@ import {
   GraduationCap,
   FlaskConical,
   User,
+  Users,
   Loader2,
   PinOff,
   FolderOpen,
@@ -42,6 +43,9 @@ type Note = {
   content: string;
   created_at?: string;
   updated_at?: string;
+  isShared?: boolean;
+  sharePermission?: "view" | "edit";
+  user_id?: string;
 };
 
 // Category configuration
@@ -75,17 +79,71 @@ const Notes = () => {
       }
       setUser(user);
 
-      const { data, error } = await supabase
+      // Fetch user's own notes
+      const { data: ownedNotes, error: ownedError } = await supabase
         .from("notes")
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
-      if (error) {
+      if (ownedError) {
         toast({ title: "Error", description: "Failed to fetch notes.", variant: "destructive" });
-      } else {
-        setNotes(data || []);
+        setIsLoading(false);
+        return;
       }
+
+      // Fetch notes shared with the user
+      const { data: sharedNotesData, error: sharedError } = await supabase
+        .from("note_shares")
+        .select(`
+          note_id,
+          permission,
+          notes (
+            id,
+            title,
+            content,
+            category,
+            date,
+            pinned,
+            created_at,
+            updated_at,
+            user_id
+          )
+        `)
+        .or(`shared_with.eq.${user.id},shared_with_email.eq.${user.email}`);
+
+      if (sharedError) {
+        console.error("Error fetching shared notes:", sharedError);
+      }
+
+      // Define type for shared note data
+      interface SharedNoteData {
+        note_id: string;
+        permission: "view" | "edit";
+        notes: Note | null;
+      }
+
+      // Extract shared notes and mark them as shared
+      const sharedNotes = (sharedNotesData as SharedNoteData[] || [])
+        .filter((share) => share.notes)
+        .map((share) => ({
+          ...share.notes!,
+          isShared: true,
+          sharePermission: share.permission,
+        }));
+
+      // Combine and deduplicate (in case a note appears in both)
+      const allNotes: Note[] = [...(ownedNotes || [])];
+      sharedNotes.forEach((sharedNote) => {
+        if (!allNotes.find((n) => n.id === sharedNote.id)) {
+          allNotes.push(sharedNote);
+        }
+      });
+
+      // Sort by created_at descending
+      allNotes.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      setNotes(allNotes);
       setIsLoading(false);
     };
     fetchUserAndNotes();
@@ -211,6 +269,19 @@ const Notes = () => {
           {isPinned && (
             <div className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-full p-1.5 shadow-md">
               <Pin className="h-3 w-3" />
+            </div>
+          )}
+
+          {/* Shared indicator */}
+          {note.isShared && (
+            <div className="absolute top-2 left-2">
+              <Badge
+                variant="secondary"
+                className="text-[10px] sm:text-xs bg-blue-500/90 text-white shadow-md"
+              >
+                <Users className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-1" />
+                {note.sharePermission === "edit" ? "Can Edit" : "View Only"}
+              </Badge>
             </div>
           )}
 

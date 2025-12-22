@@ -418,7 +418,7 @@ const Events = () => {
 
         {/* Events Grid */}
         {filteredEvents.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-5">
             {filteredEvents.map((event) => {
               const timeInfo = getTimeRemaining(event.date);
               const categoryInfo = getCategoryInfo(event.category);
@@ -429,110 +429,116 @@ const Events = () => {
                 <Card
                   key={event.id}
                   className={cn(
-                    "group relative overflow-hidden cursor-pointer transition-all duration-200",
-                    "sm:hover:shadow-xl sm:hover:shadow-primary/5 sm:hover:-translate-y-1",
+                    "group relative overflow-hidden cursor-pointer transition-all duration-300",
+                    "hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-1",
                     "active:scale-[0.98] touch-manipulation",
-                    "border bg-card/80 backdrop-blur-sm",
-                    timeInfo.isToday && "ring-2 ring-primary/20"
+                    "border bg-card/95 backdrop-blur-sm",
+                    "flex flex-col h-full min-h-[180px] max-h-[280px]",
+                    timeInfo.isToday && "ring-2 ring-primary/30 shadow-lg shadow-primary/10"
                   )}
                   onClick={() => handleEventClick(event)}
                 >
-                  {/* Gradient accent */}
+                  {/* Category Color Bar */}
                   <div
                     className={cn(
                       "absolute inset-x-0 top-0 h-1 transition-all duration-300",
-                      "bg-gradient-to-r from-primary/60 via-primary to-primary/60",
+                      categoryInfo.color.includes("blue") && "bg-gradient-to-r from-blue-400 via-blue-500 to-blue-400",
+                      categoryInfo.color.includes("purple") && "bg-gradient-to-r from-purple-400 via-purple-500 to-purple-400",
+                      categoryInfo.color.includes("pink") && "bg-gradient-to-r from-pink-400 via-pink-500 to-pink-400",
+                      categoryInfo.color.includes("emerald") && "bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-400",
+                      categoryInfo.color.includes("amber") && "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400",
+                      categoryInfo.color.includes("green") && "bg-gradient-to-r from-green-400 via-green-500 to-green-400",
                       "group-hover:h-1.5"
                     )}
                   />
 
-                  <CardContent className="p-4 sm:p-5">
-                    <div className="flex gap-3 sm:gap-4">
-                      {/* Date Block */}
+                  <CardContent className="p-4 lg:p-5 flex flex-col flex-1">
+                    {/* Header Row - Date, Category, Time */}
+                    <div className="flex items-start gap-3 mb-3">
+                      {/* Date Block - Compact */}
                       <div
                         className={cn(
-                          "flex flex-col items-center justify-center min-w-12 sm:min-w-14 h-12 sm:h-14 rounded-lg sm:rounded-xl",
-                          "bg-gradient-to-br from-muted/80 to-muted/40",
-                          "group-hover:from-primary/10 group-hover:to-primary/5",
-                          "transition-colors duration-300 shrink-0"
+                          "flex flex-col items-center justify-center w-14 h-14 rounded-xl",
+                          "bg-gradient-to-br from-muted to-muted/50",
+                          "group-hover:from-primary/15 group-hover:to-primary/5",
+                          "transition-all duration-300 shrink-0 border border-border/50"
                         )}
                       >
-                        <span className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase">
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
                           {dateInfo.month}
                         </span>
-                        <span className="text-lg sm:text-xl font-bold leading-none">{dateInfo.day}</span>
+                        <span className="text-xl font-bold leading-none text-foreground">{dateInfo.day}</span>
                       </div>
 
-                      {/* Content */}
-                      <div className="flex-1 min-w-0 space-y-1.5 sm:space-y-2">
-                        {/* Category & Time */}
-                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                      {/* Badges */}
+                      <div className="flex-1 min-w-0 space-y-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <Badge
                             variant="secondary"
                             className={cn(
-                              "gap-1 sm:gap-1.5 font-medium text-[10px] sm:text-xs",
+                              "gap-1.5 font-medium text-xs px-2.5 py-0.5",
                               categoryInfo.bgColor,
                               categoryInfo.color
                             )}
                           >
-                            <CategoryIcon className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                            <CategoryIcon className="h-3 w-3" />
                             {categoryInfo.label}
                           </Badge>
 
                           <Badge
                             variant="outline"
                             className={cn(
-                              "text-[10px] sm:text-xs font-medium shrink-0",
+                              "text-xs font-medium px-2.5 py-0.5",
                               timeInfo.isUpcoming
-                                ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/5"
-                                : "border-muted-foreground/30 text-muted-foreground"
+                                ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
+                                : "border-muted-foreground/30 text-muted-foreground bg-muted/50"
                             )}
                           >
-                            <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-1" />
+                            <Clock className="h-3 w-3 mr-1" />
                             {timeInfo.text}
                           </Badge>
                         </div>
 
                         {/* Title */}
-                        <h3 className="font-semibold text-sm sm:text-base leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+                        <h3 className="font-semibold text-base lg:text-lg leading-snug line-clamp-2 group-hover:text-primary transition-colors">
                           {event.title}
                         </h3>
-
-                        {/* Description - Hide on mobile for compact view */}
-                        {event.description && (
-                          <p className="hidden sm:block text-sm text-muted-foreground line-clamp-2">
-                            {event.description}
-                          </p>
-                        )}
                       </div>
                     </div>
 
-                    {/* Footer */}
-                    <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-border/50 flex items-center justify-between">
-                      <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1 sm:gap-1.5">
-                          <Calendar className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                          <span>{formatDate(event.date)}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {event.location && (
-                      <div className="mt-1.5 sm:mt-2 flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm text-muted-foreground">
-                        <MapPin className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
-                        <span className="truncate">{event.location}</span>
+                    {/* Description - Fixed height with overflow */}
+                    {event.description && (
+                      <div className="flex-1 min-h-0 mb-3">
+                        <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
+                          {event.description}
+                        </p>
                       </div>
                     )}
 
-                    {/* Hover Action - Hidden on mobile */}
+                    {/* Footer - Always at bottom */}
+                    <div className="mt-auto pt-3 border-t border-border/50 space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <Calendar className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{formatDate(event.date)}</span>
+                      </div>
+
+                      {event.location && (
+                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                          <MapPin className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">{event.location}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Hover Action Indicator */}
                     <div
                       className={cn(
-                        "hidden sm:block absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100",
+                        "absolute right-3 bottom-3 opacity-0 group-hover:opacity-100",
                         "transition-all duration-300 group-hover:translate-x-0 translate-x-2"
                       )}
                     >
-                      <div className="p-2 rounded-full bg-primary/10 text-primary">
-                        <ChevronRight className="h-5 w-5" />
+                      <div className="p-1.5 rounded-full bg-primary text-primary-foreground shadow-lg">
+                        <ExternalLink className="h-4 w-4" />
                       </div>
                     </div>
                   </CardContent>

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -13,14 +13,17 @@ import {
   Undo2,
   Redo2,
   Trash2,
-  Palette,
   Circle,
   Grid3X3,
   AlignJustify,
   MoreHorizontal,
   Minus,
+  MousePointer2,
+  Type,
+  Image as ImageIcon,
+  MoreVertical,
 } from "lucide-react";
-import type { Tool, PaperTemplate } from "./DrawingCanvas";
+import type { Tool, PaperTemplate, DrawingCanvasRef } from "./DrawingCanvas";
 
 // Preset colors inspired by GoodNotes
 const COLORS = [
@@ -82,6 +85,7 @@ interface CanvasToolbarProps {
   canUndo: boolean;
   canRedo: boolean;
   className?: string;
+  canvasRef?: React.RefObject<DrawingCanvasRef>;
 }
 
 const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
@@ -101,17 +105,39 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
   canUndo,
   canRedo,
   className,
+  canvasRef,
 }) => {
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const tools: { id: Tool; name: string; icon: React.ReactNode }[] = [
+  const drawingTools: { id: Tool; name: string; icon: React.ReactNode }[] = [
+    { id: "select", name: "Select", icon: <MousePointer2 className="h-5 w-5" /> },
     { id: "pen", name: "Pen", icon: <Pen className="h-5 w-5" /> },
     { id: "pencil", name: "Pencil", icon: <Pencil className="h-5 w-5" /> },
     { id: "highlighter", name: "Highlighter", icon: <Highlighter className="h-5 w-5" /> },
     { id: "eraser", name: "Eraser", icon: <Eraser className="h-5 w-5" /> },
   ];
 
+  const mediaTools: { id: Tool; name: string; icon: React.ReactNode; action?: () => void }[] = [
+    { id: "text", name: "Text", icon: <Type className="h-5 w-5" /> },
+    {
+      id: "image",
+      name: "Image",
+      icon: <ImageIcon className="h-5 w-5" />,
+      action: () => fileInputRef.current?.click(),
+    },
+  ];
+
   const currentColors = tool === "highlighter" ? HIGHLIGHTER_COLORS : COLORS;
+  const showColorPalette = tool !== "eraser" && tool !== "select" && tool !== "image";
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type.startsWith("image/") && canvasRef?.current) {
+      canvasRef.current.addImage(file);
+    }
+    e.target.value = "";
+  };
 
   return (
     <div
@@ -121,9 +147,18 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         className
       )}
     >
-      {/* Drawing Tools - Primary actions first on mobile */}
+      {/* Hidden file input for image upload */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
+      {/* Selection & Drawing Tools */}
       <div className="flex items-center gap-0.5 sm:gap-1 px-0.5 sm:px-1 shrink-0">
-        {tools.map((t) => (
+        {drawingTools.map((t) => (
           <Tooltip key={t.id}>
             <TooltipTrigger asChild>
               <Button
@@ -145,8 +180,44 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
 
       <Separator orientation="vertical" className="h-6 sm:h-8 shrink-0" />
 
+      {/* Media Tools (Text & Image) */}
+      <div className="flex items-center gap-0.5 sm:gap-1 px-0.5 sm:px-1 shrink-0">
+        {mediaTools.map((t) => (
+          <Tooltip key={t.id}>
+            <TooltipTrigger asChild>
+              <Button
+                variant={tool === t.id ? "secondary" : "ghost"}
+                size="icon"
+                className={cn(
+                  "h-9 w-9 sm:h-10 sm:w-10 rounded-xl transition-all shrink-0",
+                  tool === t.id && "bg-primary/10 text-primary shadow-sm"
+                )}
+                onClick={() => {
+                  setTool(t.id);
+                  t.action?.();
+                }}
+              >
+                {t.icon}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <div className="text-center">
+                <div>{t.name}</div>
+                {t.id === "image" && (
+                  <div className="text-xs text-muted-foreground">
+                    Or drag & drop / paste
+                  </div>
+                )}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        ))}
+      </div>
+
+      <Separator orientation="vertical" className="h-6 sm:h-8 shrink-0" />
+
       {/* Color Picker */}
-      {tool !== "eraser" && (
+      {showColorPalette && (
         <Popover open={showColorPicker} onOpenChange={setShowColorPicker}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -168,7 +239,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
           <PopoverContent className="w-auto p-3" align="center">
             <div className="space-y-3">
               <p className="text-sm font-medium">
-                {tool === "highlighter" ? "Highlighter Color" : "Ink Color"}
+                {tool === "highlighter" ? "Highlighter Color" : tool === "text" ? "Text Color" : "Ink Color"}
               </p>
               <div className="grid grid-cols-5 gap-2">
                 {currentColors.map((c) => (
@@ -197,60 +268,62 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         </Popover>
       )}
 
-      {/* Size Slider */}
-      <Popover>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl shrink-0">
-                <Circle
-                  className="text-foreground"
-                  style={{
-                    width: Math.max(8, Math.min(20, size * 2)),
-                    height: Math.max(8, Math.min(20, size * 2)),
-                  }}
-                  fill="currentColor"
+      {/* Size Slider - only for drawing tools */}
+      {(tool === "pen" || tool === "pencil" || tool === "highlighter" || tool === "eraser") && (
+        <Popover>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl shrink-0">
+                  <Circle
+                    className="text-foreground"
+                    style={{
+                      width: Math.max(8, Math.min(20, size * 2)),
+                      height: Math.max(8, Math.min(20, size * 2)),
+                    }}
+                    fill="currentColor"
+                  />
+                </Button>
+              </PopoverTrigger>
+            </TooltipTrigger>
+            <TooltipContent>Size</TooltipContent>
+          </Tooltip>
+          <PopoverContent className="w-48 p-4" align="center">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">Stroke Size</p>
+                <span className="text-sm text-muted-foreground">{size}px</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <Minus className="h-3 w-3 text-muted-foreground" />
+                <Slider
+                  value={[size]}
+                  onValueChange={(v) => setSize(v[0])}
+                  min={1}
+                  max={20}
+                  step={1}
+                  className="flex-1"
                 />
-              </Button>
-            </PopoverTrigger>
-          </TooltipTrigger>
-          <TooltipContent>Size</TooltipContent>
-        </Tooltip>
-        <PopoverContent className="w-48 p-4" align="center">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium">Stroke Size</p>
-              <span className="text-sm text-muted-foreground">{size}px</span>
+                <Circle className="h-4 w-4 text-muted-foreground" fill="currentColor" />
+              </div>
+              {/* Size presets */}
+              <div className="flex items-center justify-center gap-3 pt-2">
+                {[2, 4, 8, 12, 16].map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setSize(s)}
+                    className={cn(
+                      "rounded-full bg-foreground transition-all hover:scale-110",
+                      size === s && "ring-2 ring-primary ring-offset-2"
+                    )}
+                    style={{ width: s + 6, height: s + 6 }}
+                  />
+                ))}
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <Minus className="h-3 w-3 text-muted-foreground" />
-              <Slider
-                value={[size]}
-                onValueChange={(v) => setSize(v[0])}
-                min={1}
-                max={20}
-                step={1}
-                className="flex-1"
-              />
-              <Circle className="h-4 w-4 text-muted-foreground" fill="currentColor" />
-            </div>
-            {/* Size presets */}
-            <div className="flex items-center justify-center gap-3 pt-2">
-              {[2, 4, 8, 12, 16].map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setSize(s)}
-                  className={cn(
-                    "rounded-full bg-foreground transition-all hover:scale-110",
-                    size === s && "ring-2 ring-primary ring-offset-2"
-                  )}
-                  style={{ width: s + 6, height: s + 6 }}
-                />
-              ))}
-            </div>
-          </div>
-        </PopoverContent>
-      </Popover>
+          </PopoverContent>
+        </Popover>
+      )}
 
       <Separator orientation="vertical" className="h-6 sm:h-8 shrink-0" />
 
@@ -324,7 +397,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
       <Popover>
         <PopoverTrigger asChild>
           <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl shrink-0 sm:hidden">
-            <Palette className="h-5 w-5" />
+            <MoreVertical className="h-5 w-5" />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-48 p-2" align="end">
@@ -392,24 +465,20 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
           <TooltipContent>Redo</TooltipContent>
         </Tooltip>
 
-        {/* Desktop More Options */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl">
-              <Palette className="h-5 w-5" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-48 p-2" align="end">
+        {/* Desktop Clear Canvas Button */}
+        <Tooltip>
+          <TooltipTrigger asChild>
             <Button
               variant="ghost"
-              className="w-full justify-start gap-2 text-destructive hover:text-destructive"
+              size="icon"
+              className="h-9 w-9 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10"
               onClick={onClear}
             >
               <Trash2 className="h-4 w-4" />
-              Clear Canvas
             </Button>
-          </PopoverContent>
-        </Popover>
+          </TooltipTrigger>
+          <TooltipContent>Clear Canvas</TooltipContent>
+        </Tooltip>
       </div>
     </div>
   );

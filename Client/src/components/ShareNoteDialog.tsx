@@ -255,12 +255,16 @@ const ShareNoteDialog: React.FC<ShareNoteDialogProps> = ({
         return;
       }
 
-      // Check if user exists in the system
-      const { data: existingUser } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("email", inviteEmail.toLowerCase())
-        .single();
+      // Check if user exists in the system using secure RPC function
+      // This bypasses RLS to allow looking up other users by email
+      const { data: existingUserId, error: lookupError } = await supabase
+        .rpc("get_user_id_by_email", { lookup_email: inviteEmail.toLowerCase() });
+
+      if (lookupError) {
+        console.warn("Error looking up user by email:", lookupError);
+      }
+
+      const existingUser = existingUserId ? { id: existingUserId } : null;
 
       // Create share record
       const shareData = {
@@ -280,33 +284,45 @@ const ShareNoteDialog: React.FC<ShareNoteDialogProps> = ({
 
       if (error) throw error;
 
-      // Create in-app notification for existing users (direct insert as fallback)
+      // Create in-app notification for existing users using RPC function (bypasses RLS)
       let notificationCreated = false;
-      if (existingUser) {
+      if (existingUser && existingUser.id) {
         try {
           const inviterName = user.user_metadata?.username || user.email?.split("@")[0] || "Someone";
-          const { error: notifError } = await supabase.from("notifications").insert({
-            user_id: existingUser.id,
-            type: "note_share",
-            title: "Note shared with you",
-            message: `${inviterName} shared "${noteTitle}" with you (${invitePermission} access)`,
-            data: {
-              note_id: noteId,
-              share_id: data.id,
-              permission: invitePermission,
-            },
-            is_read: false,
-          });
+
+          // Prepare notification data as JSONB
+          const notificationDataPayload = {
+            note_id: noteId,
+            share_id: data.id,
+            permission: invitePermission,
+            sharer_id: user.id,
+            sharer_email: user.email,
+          };
+
+          console.log("Creating notification via RPC for user:", existingUser.id);
+
+          // Use RPC function to create notification (bypasses RLS)
+          const { data: notificationId, error: notifError } = await supabase
+            .rpc("create_notification", {
+              p_user_id: existingUser.id,
+              p_type: "note_share",
+              p_title: "Note shared with you",
+              p_message: `${inviterName} shared "${noteTitle}" with you (${invitePermission} access)`,
+              p_data: notificationDataPayload,
+            });
 
           if (notifError) {
-            console.error("Failed to create notification:", notifError);
+            console.error("Failed to create notification via RPC:", notifError);
+            console.error("Notification error details:", JSON.stringify(notifError, null, 2));
           } else {
             notificationCreated = true;
-            console.log("In-app notification created for user:", existingUser.id);
+            console.log("In-app notification created successfully via RPC:", notificationId);
           }
         } catch (notifErr) {
           console.error("Error creating notification:", notifErr);
         }
+      } else {
+        console.log("No existing user found for email, skipping in-app notification:", inviteEmail);
       }
 
       // Send email invite via Edge Function (uses Resend API)
@@ -451,13 +467,13 @@ const ShareNoteDialog: React.FC<ShareNoteDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Share "{noteTitle}"
+      <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[500px] max-h-[85vh] sm:max-h-[90vh] flex flex-col p-4 sm:p-6">
+        <DialogHeader className="flex-shrink-0">
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Users className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="truncate">Share "{noteTitle}"</span>
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             Share this note with others or make it public
           </DialogDescription>
         </DialogHeader>
@@ -467,14 +483,15 @@ const ShareNoteDialog: React.FC<ShareNoteDialogProps> = ({
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6 overflow-y-auto flex-1 pr-1 -mr-1">
             {/* Add People Section */}
-            <div className="space-y-3">
-              <Label className="text-sm font-medium flex items-center gap-2">
-                <UserPlus className="h-4 w-4" />
+            <div className="space-y-2 sm:space-y-3">
+              <Label className="text-xs sm:text-sm font-medium flex items-center gap-2">
+                <UserPlus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 Add people
               </Label>
-              <div className="flex gap-2">
+              {/* Mobile: Stack vertically, Desktop: Single row */}
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Input
                   placeholder="Enter email address"
                   type="email"
@@ -485,75 +502,77 @@ const ShareNoteDialog: React.FC<ShareNoteDialogProps> = ({
                       sendInvite();
                     }
                   }}
-                  className="flex-1"
+                  className="flex-1 text-sm h-9 sm:h-10"
                 />
-                <Select
-                  value={invitePermission}
-                  onValueChange={(v: SharePermission) => setInvitePermission(v)}
-                >
-                  <SelectTrigger className="w-[100px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="view">
-                      <div className="flex items-center gap-2">
-                        <Eye className="h-3 w-3" />
-                        View
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="edit">
-                      <div className="flex items-center gap-2">
-                        <Edit3 className="h-3 w-3" />
-                        Edit
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button onClick={sendInvite} disabled={isInviting}>
-                  {isInviting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Mail className="h-4 w-4" />
-                  )}
-                </Button>
+                <div className="flex gap-2">
+                  <Select
+                    value={invitePermission}
+                    onValueChange={(v: SharePermission) => setInvitePermission(v)}
+                  >
+                    <SelectTrigger className="w-[100px] sm:w-[100px] h-9 sm:h-10 text-xs sm:text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="view">
+                        <div className="flex items-center gap-2">
+                          <Eye className="h-3 w-3" />
+                          View
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="edit">
+                        <div className="flex items-center gap-2">
+                          <Edit3 className="h-3 w-3" />
+                          Edit
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button onClick={sendInvite} disabled={isInviting} size="sm" className="h-9 sm:h-10 px-3">
+                    {isInviting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Mail className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
 
             {/* Shared Users List */}
             {sharedUsers.length > 0 && (
               <div className="space-y-2">
-                <Label className="text-sm font-medium">People with access</Label>
-                <div className="space-y-2 max-h-[150px] overflow-y-auto">
+                <Label className="text-xs sm:text-sm font-medium">People with access</Label>
+                <div className="space-y-2 max-h-[120px] sm:max-h-[150px] overflow-y-auto">
                   {sharedUsers.map((share) => (
                     <div
                       key={share.id}
-                      className="flex items-center justify-between p-2 rounded-lg bg-muted/50"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-2 rounded-lg bg-muted/50 gap-2"
                     >
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8">
+                      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                        <Avatar className="h-7 w-7 sm:h-8 sm:w-8 flex-shrink-0">
                           <AvatarFallback className="text-xs">
                             {getInitials(share.shared_with_email)}
                           </AvatarFallback>
                         </Avatar>
-                        <div>
-                          <p className="text-sm font-medium">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs sm:text-sm font-medium truncate">
                             {share.shared_with_email}
                           </p>
                           {!share.invite_accepted && (
-                            <Badge variant="secondary" className="text-xs">
+                            <Badge variant="secondary" className="text-[10px] sm:text-xs">
                               Pending
                             </Badge>
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 justify-end flex-shrink-0">
                         <Select
                           value={share.permission}
                           onValueChange={(v: SharePermission) =>
                             updateUserPermission(share.id, v)
                           }
                         >
-                          <SelectTrigger className="w-[90px] h-8 text-xs">
+                          <SelectTrigger className="w-[80px] sm:w-[90px] h-7 sm:h-8 text-[10px] sm:text-xs">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -564,12 +583,12 @@ const ShareNoteDialog: React.FC<ShareNoteDialogProps> = ({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          className="h-7 w-7 sm:h-8 sm:w-8 text-destructive hover:text-destructive"
                           onClick={() =>
                             removeUserAccess(share.id, share.shared_with_email)
                           }
                         >
-                          <X className="h-4 w-4" />
+                          <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         </Button>
                       </div>
                     </div>
@@ -581,30 +600,30 @@ const ShareNoteDialog: React.FC<ShareNoteDialogProps> = ({
             <Separator />
 
             {/* Link Sharing Section */}
-            <div className="space-y-3">
-              <Label className="text-sm font-medium flex items-center gap-2">
-                <Link2 className="h-4 w-4" />
+            <div className="space-y-2 sm:space-y-3">
+              <Label className="text-xs sm:text-sm font-medium flex items-center gap-2">
+                <Link2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 Link sharing
               </Label>
 
               {/* Link Access Dropdown */}
-              <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
-                {getLinkAccessIcon()}
+              <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg border bg-muted/30">
+                <span className="flex-shrink-0">{getLinkAccessIcon()}</span>
                 <Select
                   value={shareSettings.link_access}
                   onValueChange={(v: LinkAccess) => updateLinkAccess(v)}
                   disabled={isSaving}
                 >
-                  <SelectTrigger className="flex-1 border-0 bg-transparent p-0 h-auto focus:ring-0">
+                  <SelectTrigger className="flex-1 border-0 bg-transparent p-0 h-auto focus:ring-0 text-xs sm:text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="private">
                       <div className="flex items-center gap-2">
-                        <Lock className="h-4 w-4" />
-                        <div>
-                          <p className="font-medium">Restricted</p>
-                          <p className="text-xs text-muted-foreground">
+                        <Lock className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <p className="font-medium text-xs sm:text-sm">Restricted</p>
+                          <p className="text-[10px] sm:text-xs text-muted-foreground">
                             Only people added can open
                           </p>
                         </div>
@@ -612,10 +631,10 @@ const ShareNoteDialog: React.FC<ShareNoteDialogProps> = ({
                     </SelectItem>
                     <SelectItem value="anyone_with_link">
                       <div className="flex items-center gap-2">
-                        <Link2 className="h-4 w-4" />
-                        <div>
-                          <p className="font-medium">Anyone with the link</p>
-                          <p className="text-xs text-muted-foreground">
+                        <Link2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <p className="font-medium text-xs sm:text-sm">Anyone with the link</p>
+                          <p className="text-[10px] sm:text-xs text-muted-foreground">
                             Anyone with the link can view/edit
                           </p>
                         </div>
@@ -623,10 +642,10 @@ const ShareNoteDialog: React.FC<ShareNoteDialogProps> = ({
                     </SelectItem>
                     <SelectItem value="public">
                       <div className="flex items-center gap-2">
-                        <Globe className="h-4 w-4" />
-                        <div>
-                          <p className="font-medium">Public</p>
-                          <p className="text-xs text-muted-foreground">
+                        <Globe className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <p className="font-medium text-xs sm:text-sm">Public</p>
+                          <p className="text-[10px] sm:text-xs text-muted-foreground">
                             Anyone on the internet can find and access
                           </p>
                         </div>
@@ -638,8 +657,8 @@ const ShareNoteDialog: React.FC<ShareNoteDialogProps> = ({
 
               {/* Link Permission (only show if not private) */}
               {shareSettings.link_access !== "private" && (
-                <div className="flex items-center justify-between p-3 rounded-lg border">
-                  <span className="text-sm">Link permission</span>
+                <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg border">
+                  <span className="text-xs sm:text-sm">Link permission</span>
                   <Select
                     value={shareSettings.link_permission}
                     onValueChange={(v: SharePermission) =>
@@ -647,7 +666,7 @@ const ShareNoteDialog: React.FC<ShareNoteDialogProps> = ({
                     }
                     disabled={isSaving}
                   >
-                    <SelectTrigger className="w-[100px]">
+                    <SelectTrigger className="w-[90px] sm:w-[100px] h-8 text-xs sm:text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -671,17 +690,17 @@ const ShareNoteDialog: React.FC<ShareNoteDialogProps> = ({
               {/* Copy Link Button */}
               <Button
                 variant="outline"
-                className="w-full gap-2"
+                className="w-full gap-2 h-9 sm:h-10 text-xs sm:text-sm"
                 onClick={copyLink}
               >
                 {copied ? (
                   <>
-                    <Check className="h-4 w-4 text-green-500" />
+                    <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-500" />
                     Copied!
                   </>
                 ) : (
                   <>
-                    <Copy className="h-4 w-4" />
+                    <Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     Copy link
                   </>
                 )}
