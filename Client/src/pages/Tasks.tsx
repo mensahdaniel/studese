@@ -309,6 +309,8 @@ const Tasks = () => {
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
+      console.log(data);
+
       if (error) {
         toast({
           title: "Error",

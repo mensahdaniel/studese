@@ -3,7 +3,7 @@ import { BASE_URL } from '@/config';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
+// anotha one
 // Create Supabase client with site URL for auth redirects
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {

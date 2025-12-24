@@ -10,6 +10,7 @@ import { startTaskReminders, stopTaskReminders } from "@/services/taskReminderSe
 import { initializePushNotifications, cleanupPushNotifications } from "@/utils/pushNotifications";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
+import EmailConfirmation from "./pages/EmailConfirmation";
 import Dashboard from "./pages/Dashboard";
 import Calendar from "./pages/Calendar";
 import Notes from "./pages/Notes";
@@ -28,7 +29,7 @@ import Success from "./pages/Success";
 import { supabase } from "@/utils/supabase";
 
 const queryClient = new QueryClient();
-
+//new push
 // New component to check payment status
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const [isPaidUser, setIsPaidUser] = useState<boolean | null>(null);
@@ -47,19 +48,19 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
         // Check if user has paid status in database
         const { data, error } = await supabase
-          .from('profiles') // or whatever your user table is called
-          .select('is_paid')
-          .eq('id', user.id)
+          .from("profiles") // or whatever your user table is called
+          .select("is_paid")
+          .eq("id", user.id)
           .single();
 
         if (error) {
-          console.error('Error checking payment status:', error);
+          console.error("Error checking payment status:", error);
           setIsPaidUser(false);
         } else {
           setIsPaidUser(data?.is_paid || false);
         }
       } catch (error) {
-        console.error('Error checking payment status:', error);
+        console.error("Error checking payment status:", error);
         setIsPaidUser(false);
       } finally {
         setIsLoading(false);
@@ -154,7 +155,10 @@ const App = () => {
             <Route path="/pricing" element={session ? <StripeCheckout /> : <Navigate to="/login" />} />
 
             {/* Success page - after payment */}
-            <Route path="/success" element={session ? <Success /> : <Navigate to="/login" />} />
+            <Route
+              path="/success"
+              element={session ? <Success /> : <Navigate to="/login" />}
+            />
 
             {/* Public shared note route - accessible without login */}
             <Route path="/shared/:linkId" element={<SharedNote />} />

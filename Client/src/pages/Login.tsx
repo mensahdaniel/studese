@@ -23,7 +23,7 @@ const Login = () => {
 
   // Auto-set to signup mode if URL has ?mode=signup
   useEffect(() => {
-    const signupMode = searchParams.get('mode') === 'signup';
+    const signupMode = searchParams.get("mode") === "signup";
     if (signupMode) {
       setIsSignUp(true);
     }
@@ -33,19 +33,19 @@ const Login = () => {
   const checkPaymentStatus = async (userId: string) => {
     try {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('is_paid')
-        .eq('id', userId)
+        .from("profiles")
+        .select("is_paid")
+        .eq("id", userId)
         .single();
 
       if (error) {
-        console.error('Error checking payment status:', error);
+        console.error("Error checking payment status:", error);
         return false;
       }
 
       return data?.is_paid || false;
     } catch (error) {
-      console.error('Error checking payment status:', error);
+      console.error("Error checking payment status:", error);
       return false;
     }
   };
@@ -108,7 +108,8 @@ const Login = () => {
             // User hasn't paid - go to pricing page
             toast({
               title: "Welcome back!",
-              description: "Please complete your subscription to access Studese Pro.",
+              description:
+                "Please complete your subscription to access Studese Pro.",
             });
             navigate("/pricing");
           }
@@ -198,10 +199,14 @@ const Login = () => {
             <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
               <span className="text-primary-foreground font-bold">SE</span>
             </div>
-            <span className="font-semibold text-2xl group-hover:text-primary transition-colors">StudEse</span>
+            <span className="font-semibold text-2xl group-hover:text-primary transition-colors">
+              StudEse
+            </span>
           </Link>
           <p className="text-muted-foreground">
-            {isSignUp ? "Create your account to get started" : "Sign in to access Studese Pro"}
+            {isSignUp
+              ? "Create your account to get started"
+              : "Sign in to access Studese Pro"}
           </p>
         </div>
 
@@ -210,7 +215,9 @@ const Login = () => {
           <CardHeader className="space-y-1 text-center">
             <CardTitle className="text-2xl">{isSignUp ? "Create Account" : "Welcome back "}</CardTitle>
             <CardDescription>
-              {isSignUp ? "Sign up to start your journey with Studese Pro" : "Enter your credentials to access your account"}
+              {isSignUp
+                ? "Sign up to start your journey with Studese Pro"
+                : "Enter your credentials to access your account"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -246,7 +253,9 @@ const Login = () => {
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder={isSignUp ? "Create a password" : "Enter your password"}
+                    placeholder={
+                      isSignUp ? "Create a password" : "Enter your password"
+                    }
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full pr-10"
@@ -273,13 +282,21 @@ const Login = () => {
                 disabled={isLoading}
                 onClick={handleSubmit}
               >
-                {isLoading ? (isSignUp ? "Creating account..." : "Signing in...") : (isSignUp ? "Create Account" : "Sign In")}
+                {isLoading
+                  ? isSignUp
+                    ? "Creating account..."
+                    : "Signing in..."
+                  : isSignUp
+                  ? "Create Account"
+                  : "Sign In"}
               </Button>
             </div>
 
             <div className="text-center space-y-4">
               <p className="text-sm text-muted-foreground">
-                {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
+                {isSignUp
+                  ? "Already have an account?"
+                  : "Don't have an account?"}{" "}
                 <Button
                   variant="link"
                   className="p-0 h-auto font-normal"

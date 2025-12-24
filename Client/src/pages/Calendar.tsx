@@ -11,13 +11,23 @@ import {
   Clock,
   MapPin,
   Trash2,
-  ExternalLink
+  ExternalLink,
 } from "lucide-react";
 
 import { supabase } from "@/utils/supabase";
 import { useToast } from "@/hooks/use-toast";
-import { format, addDays, subDays, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay } from "date-fns";
-import { formatInTimeZone } from 'date-fns-tz';
+import {
+  format,
+  addDays,
+  subDays,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  eachDayOfInterval,
+  isSameDay,
+} from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 
 interface CalendarItem {
   id: string;
@@ -40,26 +50,32 @@ const Calendar = () => {
   const [showAllItems, setShowAllItems] = useState(false);
 
   // Safe date formatting function
-  const safeFormatDate = (dateString: string, formatStr: string = 'MMM d') => {
+  const safeFormatDate = (dateString: string, formatStr: string = "MMM d") => {
     try {
       const date = new Date(dateString);
-      return isNaN(date.getTime()) ? 'Date TBA' : format(date, formatStr);
+      return isNaN(date.getTime()) ? "Date TBA" : format(date, formatStr);
     } catch (error) {
-      return 'Date TBA';
+      return "Date TBA";
     }
   };
 
   // Open event in Hypafy
   const openEventPage = (eventId: string) => {
-    window.open(`https://www.events.hypafy.com/events/${eventId}`, '_blank');
+    window.open(`https://www.events.hypafy.com/events/${eventId}`, "_blank");
   };
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
-        toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
+        toast({
+          title: "Error",
+          description: "User not authenticated.",
+          variant: "destructive",
+        });
         setIsLoading(false);
         return;
       }
@@ -73,16 +89,16 @@ const Calendar = () => {
         const response = await fetch(
           `https://nlgrnddx13.execute-api.us-east-1.amazonaws.com/prod/event/list?lat=${lat}&lng=${lng}&page=${page}`,
           {
-            method: 'GET',
+            method: "GET",
             headers: {
-              'x-api-key': 'QLQFG0LMMpsaNyR65rDT3sArD4Bdyaq3RsHHdmEd'
-            }
+              "x-api-key": "QLQFG0LMMpsaNyR65rDT3sArD4Bdyaq3RsHHdmEd",
+            },
           }
         );
 
-        console.log('API Status:', response.status);
+        console.log("API Status:", response.status);
         const responseData = await response.json();
-        console.log('API Data:', responseData);
+        console.log("API Data:", responseData);
 
         if (!response.ok) {
           throw new Error(`API error: ${response.status}`);
@@ -97,7 +113,7 @@ const Calendar = () => {
           location: event.location?.address,
           date: event.localStart || event.date,
           color: "bg-primary/10 text-primary border-primary/20",
-          link: event.link
+          link: event.link,
         }));
 
         setEvents(formattedEvents);
@@ -107,7 +123,7 @@ const Calendar = () => {
           description: "Failed to fetch events from external API.",
           variant: "destructive"
         });
-        console.error('API fetch error:', error);
+        console.error("API fetch error:", error);
       }
 
       // Fetch tasks
@@ -117,9 +133,20 @@ const Calendar = () => {
         .eq("user_id", user.id);
 
       if (taskError) {
-        toast({ title: "Error", description: taskError.message, variant: "destructive" });
+        toast({
+          title: "Error",
+          description: taskError.message,
+          variant: "destructive",
+        });
       } else {
-        setTasks(taskData.map(t => ({ ...t, type: "task", date: t.due_date, color: "bg-success/10 text-success border-success/20" })));
+        setTasks(
+          taskData.map((t) => ({
+            ...t,
+            type: "task",
+            date: t.due_date,
+            color: "bg-success/10 text-success border-success/20",
+          }))
+        );
       }
 
       setIsLoading(false);
@@ -128,7 +155,9 @@ const Calendar = () => {
     fetchData();
   }, [toast]);
 
-  const allItems = [...events, ...tasks].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const allItems = [...events, ...tasks].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
 
   const getDaysInMonth = () => {
     const start = startOfMonth(currentDate);
@@ -140,18 +169,26 @@ const Calendar = () => {
   };
 
   const getItemsForDate = (date: Date) => {
+    //console.log(allItems);
     const dateStr = format(date, "yyyy-MM-dd");
-    return allItems.filter(i => i.date === dateStr);
+    return allItems.filter((i) => format(i.date, "yyyy-MM-dd") === dateStr);
   };
 
   const toggleComplete = async (item: CalendarItem) => {
     if (item.type === "task") {
       const updated = { ...item, completed: !item.completed };
-      const { error } = await supabase.from("tasks").update(updated).eq("id", item.id);
+      const { error } = await supabase
+        .from("tasks")
+        .update(updated)
+        .eq("id", item.id);
       if (error) {
-        toast({ title: "Error", description: error.message, variant: "destructive" });
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        });
       } else {
-        setTasks(tasks.map(t => t.id === item.id ? updated : t));
+        setTasks(tasks.map((t) => (t.id === item.id ? updated : t)));
       }
     }
   };
@@ -160,14 +197,24 @@ const Calendar = () => {
     const table = item.type === "event" ? "events" : "tasks";
     const { error } = await supabase.from(table).delete().eq("id", item.id);
     if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     } else {
-      if (item.type === "event") setEvents(events.filter(e => e.id !== item.id));
-      if (item.type === "task") setTasks(tasks.filter(t => t.id !== item.id));
+      if (item.type === "event")
+        setEvents(events.filter((e) => e.id !== item.id));
+      if (item.type === "task") setTasks(tasks.filter((t) => t.id !== item.id));
     }
   };
 
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  if (isLoading)
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        Loading...
+      </div>
+    );
 
   return (
     <div className="p-6 space-y-6">
