@@ -8,88 +8,401 @@ All colors MUST be HSL.
 */
 
 @layer base {
-  :root {
-    /* Light theme - clean and minimal */
-    --background: 0 0% 99%;
-    --foreground: 215 25% 15%;
-    --card: 0 0% 100%;
-    --card-foreground: 215 25% 15%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 215 25% 15%;
-    --primary: 215 84% 58%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 210 15% 96%;
-    --secondary-foreground: 215 25% 25%;
-    --muted: 210 15% 97%;
-    --muted-foreground: 215 15% 55%;
-    --accent: 210 25% 94%;
-    --accent-foreground: 215 25% 25%;
-    --destructive: 0 75% 55%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 215 15% 90%;
-    --input: 215 15% 94%;
-    --ring: 215 84% 58%;
-    --radius: 0.75rem;
-    --success: 142 72% 45%;
-    --success-foreground: 0 0% 100%;
-    --warning: 38 92% 60%;
-    --warning-foreground: 0 0% 100%;
-    
-    /* Sidebar light theme */
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 215 84% 58%;
-  }
+    :root {
+        /* Light theme - clean and minimal */
+        --background: 0 0% 99%;
+        --foreground: 215 25% 15%;
+        --card: 0 0% 100%;
+        --card-foreground: 215 25% 15%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 215 25% 15%;
+        --primary: 215 84% 58%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 210 15% 96%;
+        --secondary-foreground: 215 25% 25%;
+        --muted: 210 15% 97%;
+        --muted-foreground: 215 15% 55%;
+        --accent: 210 25% 94%;
+        --accent-foreground: 215 25% 25%;
+        --destructive: 0 75% 55%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 215 15% 90%;
+        --input: 215 15% 94%;
+        --ring: 215 84% 58%;
+        --radius: 0.75rem;
+        --success: 142 72% 45%;
+        --success-foreground: 0 0% 100%;
+        --warning: 38 92% 60%;
+        --warning-foreground: 0 0% 100%;
 
-  .dark {
-    /* Modern dark theme - elegant and professional */
-    --background: 0 0% 7.1%;
-    --foreground: 0 0% 94.1%;
-    --card: 0 0% 11.8%;
-    --card-foreground: 0 0% 94.1%;
-    --popover: 0 0% 11.8%;
-    --popover-foreground: 0 0% 94.1%;
-    --primary: 215 85% 65%;
-    --primary-foreground: 0 0% 11.8%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 94.1%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 65.1%;
-    --accent: 0 0% 18.8%;
-    --accent-foreground: 0 0% 94.1%;
-    --destructive: 0 75% 65%;
-    --destructive-foreground: 0 0% 11.8%;
-    --border: 0 0% 18.8%;
-    --input: 0 0% 18.8%;
-    --ring: 215 85% 65%;
-    --success: 142 72% 55%;
-    --success-foreground: 0 0% 11.8%;
-    --warning: 38 92% 70%;
-    --warning-foreground: 0 0% 11.8%;
-    
-    /* Sidebar dark theme */
-    --sidebar-background: 0 0% 3.9%;
-    --sidebar-foreground: 0 0% 94.1%;
-    --sidebar-primary: 215 85% 65%;
-    --sidebar-primary-foreground: 0 0% 11.8%;
-    --sidebar-accent: 0 0% 11.8%;
-    --sidebar-accent-foreground: 0 0% 94.1%;
-    --sidebar-border: 0 0% 11.8%;
-    --sidebar-ring: 215 85% 65%;
-  }
+        /* Sidebar light theme */
+        --sidebar-background: 0 0% 98%;
+        --sidebar-foreground: 240 5.3% 26.1%;
+        --sidebar-primary: 240 5.9% 10%;
+        --sidebar-primary-foreground: 0 0% 98%;
+        --sidebar-accent: 240 4.8% 95.9%;
+        --sidebar-accent-foreground: 240 5.9% 10%;
+        --sidebar-border: 220 13% 91%;
+        --sidebar-ring: 215 84% 58%;
+
+        /* Safe area insets as CSS variables */
+        --safe-area-inset-top: env(safe-area-inset-top, 0px);
+        --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+        --safe-area-inset-left: env(safe-area-inset-left, 0px);
+        --safe-area-inset-right: env(safe-area-inset-right, 0px);
+    }
+
+    .dark {
+        /* Modern dark theme - elegant and professional */
+        --background: 0 0% 7.1%;
+        --foreground: 0 0% 94.1%;
+        --card: 0 0% 11.8%;
+        --card-foreground: 0 0% 94.1%;
+        --popover: 0 0% 11.8%;
+        --popover-foreground: 0 0% 94.1%;
+        --primary: 215 85% 65%;
+        --primary-foreground: 0 0% 11.8%;
+        --secondary: 0 0% 14.9%;
+        --secondary-foreground: 0 0% 94.1%;
+        --muted: 0 0% 14.9%;
+        --muted-foreground: 0 0% 65.1%;
+        --accent: 0 0% 18.8%;
+        --accent-foreground: 0 0% 94.1%;
+        --destructive: 0 75% 65%;
+        --destructive-foreground: 0 0% 11.8%;
+        --border: 0 0% 18.8%;
+        --input: 0 0% 18.8%;
+        --ring: 215 85% 65%;
+        --success: 142 72% 55%;
+        --success-foreground: 0 0% 11.8%;
+        --warning: 38 92% 70%;
+        --warning-foreground: 0 0% 11.8%;
+
+        /* Sidebar dark theme */
+        --sidebar-background: 0 0% 3.9%;
+        --sidebar-foreground: 0 0% 94.1%;
+        --sidebar-primary: 215 85% 65%;
+        --sidebar-primary-foreground: 0 0% 11.8%;
+        --sidebar-accent: 0 0% 11.8%;
+        --sidebar-accent-foreground: 0 0% 94.1%;
+        --sidebar-border: 0 0% 11.8%;
+        --sidebar-ring: 215 85% 65%;
+    }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
+    * {
+        @apply border-border;
+    }
 
-  body {
-    @apply bg-background text-foreground;
-  }
+    /* HTML and Body setup for mobile - background colors handled dynamically by SafeAreaProvider */
+    html {
+        height: 100%;
+        overflow: hidden;
+        /* Default background that matches theme */
+        background-color: hsl(var(--background));
+    }
+
+    body {
+        @apply bg-background text-foreground;
+        height: 100%;
+        overflow: hidden;
+        /* Prevent overscroll/bounce on iOS */
+        overscroll-behavior: none;
+        -webkit-overflow-scrolling: touch;
+        /* Disable text size adjustment on orientation change */
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+    }
+
+    /* Root element fills the viewport */
+    #root {
+        height: 100%;
+        overflow: auto;
+        -webkit-overflow-scrolling: touch;
+        background-color: hsl(var(--background));
+    }
+
+    /* Safe area wrapper - ensures consistent background behind notch/Dynamic Island */
+    .safe-area-wrapper {
+        background-color: hsl(var(--background));
+    }
+}
+
+/* Mobile-specific utility classes for safe areas */
+@layer utilities {
+
+    /* Safe area padding utilities - these work on iOS with notch/Dynamic Island */
+    .pt-safe {
+        padding-top: env(safe-area-inset-top, 0px);
+    }
+
+    .pb-safe {
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    .pl-safe {
+        padding-left: env(safe-area-inset-left, 0px);
+    }
+
+    .pr-safe {
+        padding-right: env(safe-area-inset-right, 0px);
+    }
+
+    .px-safe {
+        padding-left: env(safe-area-inset-left, 0px);
+        padding-right: env(safe-area-inset-right, 0px);
+    }
+
+    .py-safe {
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    .p-safe {
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        padding-left: env(safe-area-inset-left, 0px);
+        padding-right: env(safe-area-inset-right, 0px);
+    }
+
+    /* Safe area margin utilities */
+    .mt-safe {
+        margin-top: env(safe-area-inset-top, 0px);
+    }
+
+    .mb-safe {
+        margin-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    .ml-safe {
+        margin-left: env(safe-area-inset-left, 0px);
+    }
+
+    .mr-safe {
+        margin-right: env(safe-area-inset-right, 0px);
+    }
+
+    .mx-safe {
+        margin-left: env(safe-area-inset-left, 0px);
+        margin-right: env(safe-area-inset-right, 0px);
+    }
+
+    .my-safe {
+        margin-top: env(safe-area-inset-top, 0px);
+        margin-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    .m-safe {
+        margin-top: env(safe-area-inset-top, 0px);
+        margin-bottom: env(safe-area-inset-bottom, 0px);
+        margin-left: env(safe-area-inset-left, 0px);
+        margin-right: env(safe-area-inset-right, 0px);
+    }
+
+    /* Top positioning with safe area */
+    .top-safe {
+        top: env(safe-area-inset-top, 0px);
+    }
+
+    .bottom-safe {
+        bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    .left-safe {
+        left: env(safe-area-inset-left, 0px);
+    }
+
+    .right-safe {
+        right: env(safe-area-inset-right, 0px);
+    }
+
+    /* Min height accounting for safe areas */
+    .min-h-screen-safe {
+        min-height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+        min-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    }
+
+    /* Full height with safe areas */
+    .h-screen-safe {
+        height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+        height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    }
+
+    /* Dynamic viewport height - uses dvh with vh fallback */
+    .h-dvh {
+        height: 100vh;
+        height: 100dvh;
+    }
+
+    .min-h-dvh {
+        min-height: 100vh;
+        min-height: 100dvh;
+    }
+
+    .max-h-dvh {
+        max-height: 100vh;
+        max-height: 100dvh;
+    }
+
+    /* Touch optimization for mobile */
+    .touch-manipulation {
+        touch-action: manipulation;
+    }
+
+    /* Disable text selection on interactive elements (native-like feel) */
+    .no-select {
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+    }
+
+    /* Tap highlight removal for iOS */
+    .no-tap-highlight {
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Scrollable container that respects safe areas */
+    .scroll-safe {
+        padding-left: env(safe-area-inset-left, 0px);
+        padding-right: env(safe-area-inset-right, 0px);
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Background that matches theme for safe area regions */
+    .bg-safe-area {
+        background-color: hsl(var(--background));
+    }
+}
+
+/* Capacitor/Native app specific styles */
+@layer components {
+
+    /* Main app container with safe areas */
+    .app-container {
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        padding-left: env(safe-area-inset-left, 0px);
+        padding-right: env(safe-area-inset-right, 0px);
+    }
+
+    /* Header that accounts for safe area */
+    .app-header {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-left: env(safe-area-inset-left, 0px);
+        padding-right: env(safe-area-inset-right, 0px);
+        background-color: hsl(var(--background));
+    }
+
+    /* Main content area */
+    .app-content {
+        flex: 1;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-left: env(safe-area-inset-left, 0px);
+        padding-right: env(safe-area-inset-right, 0px);
+    }
+
+    /* Footer/Bottom navigation with safe area */
+    .app-footer {
+        position: sticky;
+        bottom: 0;
+        z-index: 50;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        padding-left: env(safe-area-inset-left, 0px);
+        padding-right: env(safe-area-inset-right, 0px);
+        background-color: hsl(var(--background));
+    }
+
+    /* Fixed bottom element (like a tab bar) */
+    .fixed-bottom-safe {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        padding-left: env(safe-area-inset-left, 0px);
+        padding-right: env(safe-area-inset-right, 0px);
+    }
+
+    /* Fixed top element (like a header) */
+    .fixed-top-safe {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-left: env(safe-area-inset-left, 0px);
+        padding-right: env(safe-area-inset-right, 0px);
+    }
+}
+
+/* Status bar background for native apps - fills the notch area dynamically */
+.status-bar-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: env(safe-area-inset-top, 0px);
+    background-color: hsl(var(--background));
+    z-index: 9999;
+    /* Smooth transition when theme changes */
+    transition: background-color 0.2s ease-in-out;
+}
+
+/* Bottom safe area background - for home indicator */
+.bottom-safe-bg {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: env(safe-area-inset-bottom, 0px);
+    background-color: hsl(var(--background));
+    z-index: 9999;
+    transition: background-color 0.2s ease-in-out;
+}
+
+/* iOS-specific adjustments */
+@supports (-webkit-touch-callout: none) {
+
+    /* iOS only styles */
+    body {
+        /* Prevent rubber-banding effect */
+        position: fixed;
+        width: 100%;
+        height: 100%;
+    }
+
+    #root {
+        position: fixed;
+        width: 100%;
+        height: 100%;
+        overflow-y: auto;
+    }
+}
+
+/* Keyboard visible state - reduce bottom padding */
+.keyboard-visible .pb-safe,
+.keyboard-visible .app-footer,
+.keyboard-visible .fixed-bottom-safe {
+    padding-bottom: 0 !important;
+}
+
+/* Hide scrollbar but keep functionality */
+.hide-scrollbar,
+.scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar {
+    display: none;
 }

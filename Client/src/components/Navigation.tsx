@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import NotificationBell from "./NotificationBell";
 
 const Navigation = () => {
   const location = useLocation();
@@ -36,11 +37,10 @@ const Navigation = () => {
           <Link
             key={item.path}
             to={item.path}
-            className={`flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 min-h-[44px] ${
-              isActive
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground hover:bg-accent/50 active:bg-accent"
-            }`}
+            className={`flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 min-h-[44px] ${isActive
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground hover:bg-accent/50 active:bg-accent"
+              }`}
           >
             <Icon className="mr-3 h-4 w-4" />
             {item.name}
@@ -52,28 +52,34 @@ const Navigation = () => {
 
   return (
     <>
+      {/* Single NotificationBell instance - positioned responsively */}
+      <div className="fixed z-[60] lg:left-[200px] lg:top-6 top-4 right-4 lg:right-auto">
+        <NotificationBell />
+      </div>
+
       {/* Desktop Sidebar - Fixed positioning */}
       <aside className="hidden lg:flex w-64 flex-col bg-card border-r border-border fixed left-0 top-0 h-full z-40">
-        <div className="p-6">
+        <div className="p-6 flex items-center justify-between">
           <Link to="/" className="flex items-center space-x-2">
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
               <span className="text-primary-foreground font-bold text-sm">SE</span>
             </div>
             <span className="font-semibold text-lg">StudEse</span>
           </Link>
+          {/* NotificationBell moved to fixed position above */}
         </div>
-        
+
         <div className="flex-1 px-4 pb-6">
           <NavContent />
         </div>
       </aside>
 
       {/* Mobile Header - Fixed and sticky */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-50 flex items-center p-4 bg-card border-b border-border">
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between p-4 bg-card border-b border-border">
         {/* Hamburger Menu - Far Left */}
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="min-h-[44px] min-w-[44px] mr-2">
+            <Button variant="ghost" size="icon" className="min-h-[44px] min-w-[44px]">
               <Menu className="h-5 w-5" />
               <span className="sr-only">Open navigation menu</span>
             </Button>
@@ -102,6 +108,9 @@ const Navigation = () => {
             <span className="font-semibold text-lg">StudEse</span>
           </Link>
         </div>
+
+        {/* Notification Bell - Now in fixed position above, placeholder for spacing */}
+        <div className="w-10" />
       </header>
     </>
   );

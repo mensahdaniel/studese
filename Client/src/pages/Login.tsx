@@ -1,16 +1,11 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { BASE_URL } from "@/config";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff, Crown } from "lucide-react";
+import { Eye, EyeOff, Crown, Mail, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/utils/supabase";
 
@@ -21,6 +16,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [signupSuccess, setSignupSuccess] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
@@ -68,8 +64,6 @@ const Login = () => {
 
     setIsLoading(true);
 
-    //test
-
     try {
       if (isSignUp) {
         // Sign-up
@@ -78,13 +72,19 @@ const Login = () => {
           password,
           options: {
             data: { username },
+            emailRedirectTo: `${BASE_URL}/login`,
           },
         });
         if (error) throw error;
 
-        // Redirect to email confirmation page after successful signup
-        navigate("/email-confirmation");
+        // Show success state instead of navigating
+        setSignupSuccess(true);
+        toast({
+          title: "Account created!",
+          description: "Please check your email to confirm your account.",
+        });
         return;
+
       } else {
         // Sign-in
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -100,7 +100,7 @@ const Login = () => {
           if (isPaid) {
             // User has paid - go to dashboard
             toast({
-              title: "Welcome back! 🎉",
+              title: "Welcome back! ",
               description: "You've been successfully logged in.",
             });
             navigate("/dashboard");
@@ -115,16 +115,80 @@ const Login = () => {
           }
         }
       }
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "An error occurred.";
       toast({
         title: "Error",
-        description: error.message || "An error occurred.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Show email confirmation screen after successful signup
+  if (signupSuccess) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
+        <div className="w-full max-w-md space-y-8">
+          <div className="text-center space-y-2">
+            <Link to="/" className="inline-flex items-center space-x-2 group">
+              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+                <span className="text-primary-foreground font-bold">SE</span>
+              </div>
+              <span className="font-semibold text-2xl group-hover:text-primary transition-colors">StudEse</span>
+            </Link>
+          </div>
+
+          <Card className="border-border">
+            <CardHeader className="space-y-1 text-center">
+              <div className="mx-auto w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4">
+                <Mail className="w-8 h-8 text-green-600 dark:text-green-400" />
+              </div>
+              <CardTitle className="text-2xl">Check your email!</CardTitle>
+              <CardDescription>
+                We've sent a confirmation link to
+              </CardDescription>
+              <p className="font-medium text-foreground">{email}</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-muted rounded-lg p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-muted-foreground">
+                    Click the link in your email to confirm your account
+                  </p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-muted-foreground">
+                    After confirming, you can sign in and subscribe to Studese Pro
+                  </p>
+                </div>
+              </div>
+
+              <div className="text-center space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Didn't receive the email? Check your spam folder.
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSignupSuccess(false);
+                    setIsSignUp(false);
+                  }}
+                  className="w-full"
+                >
+                  Back to Sign In
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
@@ -149,9 +213,7 @@ const Login = () => {
         {/* Login/Sign-up Card */}
         <Card className="border-border">
           <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl">
-              {isSignUp ? "Create Account" : "Welcome back 👋"}
-            </CardTitle>
+            <CardTitle className="text-2xl">{isSignUp ? "Create Account" : "Welcome back "}</CardTitle>
             <CardDescription>
               {isSignUp
                 ? "Sign up to start your journey with Studese Pro"
@@ -253,7 +315,8 @@ const Login = () => {
                 <p className="text-xs text-blue-600 mt-1">
                   {isSignUp
                     ? "Create account → Subscribe → Access all features"
-                    : "Login → Complete subscription → Access all features"}
+                    : "Login → Complete subscription → Access all features"
+                  }
                 </p>
               </div>
             </div>

@@ -2,22 +2,104 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Mobile viewport with safe area support for iOS/Android -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+
+    <!-- iOS Status Bar Configuration -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Studese" />
+
+    <!-- Theme Color - will be dynamically updated by SafeAreaProvider based on theme -->
+    <meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#fcfcfc" media="(prefers-color-scheme: light)" />
+
+    <!-- Android -->
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <!-- Prevent phone number detection -->
+    <meta name="format-detection" content="telephone=no" />
+
     <title>StudEse - Simplify Your Campus Life</title>
     <meta name="description" content="A minimalist student productivity platform designed to help university and college students organize their academic and personal lives in one place." />
     <meta name="author" content="StudEse" />
-    
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
+    <!-- Open Graph -->
     <meta property="og:title" content="StudEse - Simplify Your Campus Life" />
     <meta property="og:description" content="A minimalist student productivity platform for students" />
     <meta property="og:type" content="website" />
-  
+
+    <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
 
-   
+    <!-- App Icons (you'll need to add these) -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+
+    <style>
+      /* Dynamic background based on system preference - prevents flash before JS loads */
+      :root {
+        /*--initial-bg-light: #fcfcfc;*/
+        --initial-bg-light: #121212;
+      }
+
+      html, body, #root {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+      }
+
+      /* Default to dark theme */
+      html {
+        background-color: var(--initial-bg-dark);
+      }
+
+      /* Switch to light if system prefers light */
+      @media (prefers-color-scheme: light) {
+        html:not(.dark) {
+          background-color: var(--initial-bg-light);
+        }
+      }
+
+      /* Override when theme class is explicitly set */
+      html.dark {
+        background-color: var(--initial-bg-dark);
+      }
+
+      html.light {
+        background-color: var(--initial-bg-light);
+      }
+
+      body {
+        background-color: inherit;
+      }
+
+      #root {
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        background-color: inherit;
+      }
+
+      /* Disable pull-to-refresh and overscroll on mobile */
+      body {
+        overscroll-behavior: none;
+        -webkit-text-size-adjust: 100%;
+      }
+
+      /* Loading state before React hydrates */
+      #root:empty {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    </style>
   </head>
 
   <body>

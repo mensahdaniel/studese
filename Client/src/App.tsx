@@ -4,7 +4,10 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { Analytics } from "@vercel/analytics/react";
+import { Analytics } from '@vercel/analytics/react';
+import { initMobileApp } from "@/utils/mobile";
+import { startTaskReminders, stopTaskReminders } from "@/services/taskReminderService";
+import { initializePushNotifications, cleanupPushNotifications } from "@/utils/pushNotifications";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import EmailConfirmation from "./pages/EmailConfirmation";
@@ -18,6 +21,9 @@ import Resources from "./pages/Resources";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import NoteEditor from "./pages/NoteEditor";
+import SharedNote from "./pages/SharedNote";
+import Layout from "./components/Layout";
+
 import StripeCheckout from "./components/StripeCheckout";
 import Success from "./pages/Success";
 import { supabase } from "@/utils/supabase";
@@ -32,9 +38,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const checkPaymentStatus = async () => {
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+        const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
           setIsPaidUser(false);
@@ -87,10 +91,19 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Initialize mobile app features (Capacitor/Expo)
+    initMobileApp();
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setIsLoading(false);
+
+      // Start task reminders and push notifications if user is logged in
+      if (session) {
+        startTaskReminders();
+        initializePushNotifications();
+      }
     });
 
     // Listen for auth state changes
@@ -99,10 +112,23 @@ const App = () => {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setIsLoading(false);
+
+      // Start/stop task reminders and push notifications based on auth state
+      if (session) {
+        startTaskReminders();
+        initializePushNotifications();
+      } else {
+        stopTaskReminders();
+        cleanupPushNotifications();
+      }
     });
 
     // Cleanup subscription on unmount
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      stopTaskReminders();
+      cleanupPushNotifications();
+    };
   }, []);
 
   if (isLoading) {
@@ -119,23 +145,14 @@ const App = () => {
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          {/* Add viewport meta for mobile if running as native app */}
           <Routes>
             {/* Public routes */}
-            <Route
-              path="/"
-              element={session ? <Navigate to="/dashboard" /> : <Landing />}
-            />
-            <Route
-              path="/login"
-              element={session ? <Navigate to="/pricing" /> : <Login />}
-            />
-            <Route path="/email-confirmation" element={<EmailConfirmation />} />
+            <Route path="/" element={session ? <Navigate to="/dashboard" /> : <Landing />} />
+            <Route path="/login" element={session ? <Navigate to="/pricing" /> : <Login />} />
 
             {/* Payment required route - users must pay before accessing app */}
-            <Route
-              path="/pricing"
-              element={session ? <StripeCheckout /> : <Navigate to="/login" />}
-            />
+            <Route path="/pricing" element={session ? <StripeCheckout /> : <Navigate to="/login" />} />
 
             {/* Success page - after payment */}
             <Route
@@ -143,43 +160,10 @@ const App = () => {
               element={session ? <Success /> : <Navigate to="/login" />}
             />
 
-            {/* PROTECTED ROUTES - REQUIRE BOTH LOGIN AND PAYMENT */}
-            <Route
-              path="/dashboard"
-              element={
-                session ? (
-                  <ProtectedRoute>
-                    <Dashboard />
-                  </ProtectedRoute>
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-            <Route
-              path="/calendar"
-              element={
-                session ? (
-                  <ProtectedRoute>
-                    <Calendar />
-                  </ProtectedRoute>
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-            <Route
-              path="/notes"
-              element={
-                session ? (
-                  <ProtectedRoute>
-                    <Notes />
-                  </ProtectedRoute>
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
+            {/* Public shared note route - accessible without login */}
+            <Route path="/shared/:linkId" element={<SharedNote />} />
+
+            {/* FULL-SCREEN PROTECTED ROUTES - No Layout wrapper */}
             <Route
               path="/notes/:id"
               element={
@@ -192,66 +176,30 @@ const App = () => {
                 )
               }
             />
+
+            {/* PROTECTED ROUTES - REQUIRE BOTH LOGIN AND PAYMENT */}
+            {/* Wrap all protected routes in a persistent Layout */}
             <Route
-              path="/study-wellness"
               element={
                 session ? (
                   <ProtectedRoute>
-                    <StudyWellness />
+                    <Layout />
                   </ProtectedRoute>
                 ) : (
                   <Navigate to="/login" />
                 )
               }
-            />
-            <Route
-              path="/tasks"
-              element={
-                session ? (
-                  <ProtectedRoute>
-                    <Tasks />
-                  </ProtectedRoute>
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-            <Route
-              path="/events"
-              element={
-                session ? (
-                  <ProtectedRoute>
-                    <Events />
-                  </ProtectedRoute>
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-            <Route
-              path="/resources"
-              element={
-                session ? (
-                  <ProtectedRoute>
-                    <Resources />
-                  </ProtectedRoute>
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                session ? (
-                  <ProtectedRoute>
-                    <Settings />
-                  </ProtectedRoute>
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
+            >
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/calendar" element={<Calendar />} />
+              <Route path="/notes" element={<Notes />} />
+              <Route path="/study-wellness" element={<StudyWellness />} />
+              <Route path="/tasks" element={<Tasks />} />
+              <Route path="/events" element={<Events />} />
+              <Route path="/resources" element={<Resources />} />
+              <Route path="/settings" element={<Settings />} />
+            </Route>
+
 
             <Route path="*" element={<NotFound />} />
           </Routes>

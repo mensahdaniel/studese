@@ -6,11 +6,11 @@ export const IS_PROD = import.meta.env.PROD;
 export const APP_ENV = import.meta.env.VITE_APP_ENV || 'development';
 
 // Base URLs - uses environment variables first, then falls back to auto-detection
-export const BASE_URL = import.meta.env.VITE_BASE_URL || (IS_PROD 
+export const BASE_URL = import.meta.env.VITE_BASE_URL || (IS_PROD
   ? 'https://studese.vercel.app'
   : 'http://localhost:8080');
 
-// API URLs  
+// API URLs
 export const API_BASE_URL = BASE_URL;
 
 // Stripe URLs
@@ -35,7 +35,7 @@ export const CONFIG = {
 };
 
 // Debug info
-console.log('🔧 App Config:', {
+console.log('App Config:', {
   environment: APP_ENV,
   baseUrl: BASE_URL,
   isDev: IS_DEV,

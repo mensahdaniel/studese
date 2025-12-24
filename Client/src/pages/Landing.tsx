@@ -6,16 +6,21 @@ import { ArrowRight, Calendar, FileText, CheckSquare, MapPin } from "lucide-reac
 const Landing = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted">
-      {/* Header */}
-      <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+      {/* Header with safe area padding for iOS notch/Dynamic Island */}
+      <header className="border-b border-border bg-background/80 backdrop-blur-sm sticky top-0 z-50 ">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between"
+          style={{
+            paddingLeft: 'max(1rem, env(safe-area-inset-left))',
+            paddingRight: 'max(1rem, env(safe-area-inset-right))',
+          }}
+        >
           <div className="flex items-center space-x-2">
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
               <span className="text-primary-foreground font-bold text-sm">SE</span>
             </div>
             <span className="font-semibold text-xl">StudEse</span>
           </div>
-          
+
           <Link to="/login?mode=signup">
             <Button>Get Started</Button>
           </Link>
@@ -23,7 +28,13 @@ const Landing = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="container mx-auto px-4 py-20 md:py-32">
+      <section
+        className="container mx-auto px-4 py-20 md:py-32"
+        style={{
+          paddingLeft: 'max(1rem, env(safe-area-inset-left))',
+          paddingRight: 'max(1rem, env(safe-area-inset-right))',
+        }}
+      >
         <div className="grid lg:grid-cols-2 gap-16 items-center">
           <div className="space-y-8">
             <div className="space-y-6">
@@ -31,10 +42,10 @@ const Landing = () => {
                 Simplify Your <br />
                 <span className="text-primary">Campus Life</span>
               </h1>
-              
+
               <p className="text-lg md:text-xl text-muted-foreground max-w-lg leading-relaxed">
-                A minimalist productivity platform designed to help university and college students 
-                organize their academic and personal lives in one distraction-free space. ✨
+                A minimalist productivity platform designed to help university and college students
+                organize their academic and personal lives in one distraction-free space.
               </p>
             </div>
 
@@ -63,7 +74,7 @@ const Landing = () => {
                       <div>• 6:00 PM - Study Group</div>
                     </div>
                   </div>
-                  
+
                   <div className="bg-card rounded-lg p-4 border border-border shadow-sm">
                     <div className="flex items-center gap-2 mb-2">
                       <div className="w-2 h-2 bg-success rounded-full"></div>
@@ -73,15 +84,15 @@ const Landing = () => {
                       Assignment deadline Friday...
                     </div>
                   </div>
-                  
+
                   <div className="bg-card rounded-lg p-4 border border-border shadow-sm">
                     <div className="flex items-center gap-2 mb-2">
                       <div className="w-2 h-2 bg-warning rounded-full"></div>
                       <div className="text-sm font-medium">Upcoming Tasks</div>
                     </div>
                     <div className="space-y-1 text-xs text-muted-foreground">
-                      <div>✓ Complete lab report</div>
-                      <div>○ Review for midterm</div>
+                      <div>• Complete lab report</div>
+                      <div>• Review for midterm</div>
                     </div>
                   </div>
                 </div>
@@ -92,7 +103,13 @@ const Landing = () => {
       </section>
 
       {/* Features Section */}
-      <section className="container mx-auto px-4 py-16">
+      <section
+        className="container mx-auto px-4 py-16"
+        style={{
+          paddingLeft: 'max(1rem, env(safe-area-inset-left))',
+          paddingRight: 'max(1rem, env(safe-area-inset-right))',
+        }}
+      >
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">Everything you need to stay organized</h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
@@ -140,7 +157,13 @@ const Landing = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="container mx-auto px-4 py-16">
+      <section
+        className="container mx-auto px-4 py-16"
+        style={{
+          paddingLeft: 'max(1rem, env(safe-area-inset-left))',
+          paddingRight: 'max(1rem, env(safe-area-inset-right))',
+        }}
+      >
         <Card className="bg-primary text-primary-foreground">
           <CardContent className="p-12 text-center">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
@@ -159,9 +182,20 @@ const Landing = () => {
         </Card>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-border bg-card">
-        <div className="container mx-auto px-4 py-12">
+      {/* Footer with bottom safe area */}
+      <footer
+        className="border-t border-border bg-background"
+        style={{
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        }}
+      >
+        <div
+          className="container mx-auto px-4 py-12"
+          style={{
+            paddingLeft: 'max(1rem, env(safe-area-inset-left))',
+            paddingRight: 'max(1rem, env(safe-area-inset-right))',
+          }}
+        >
           <div className="grid md:grid-cols-4 gap-8">
             <div className="space-y-4">
               <div className="flex items-center space-x-2">
@@ -203,7 +237,7 @@ const Landing = () => {
               </ul>
             </div>
           </div>
-          
+
           <div className="border-t border-border mt-8 pt-8 space-y-4">
             <div className="text-center">
               <Card className="inline-block bg-muted/50 border-warning/20">

@@ -11,9 +11,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     detectSessionInUrl: true,
     persistSession: true,
-    // ✅ USES CONFIG INSTEAD OF HARDCODED URL
+    // Uses config instead of hardcoded URL
     siteUrl: BASE_URL,
-    // ✅ This fixes redirects after auth actions
+    // This fixes redirects after auth actions
     redirectTo: BASE_URL,
   }
 });

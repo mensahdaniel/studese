@@ -1,11 +1,7 @@
-import { ReactNode } from "react";
+import { Outlet } from "react-router-dom";
 import Navigation from "./Navigation";
 
-interface LayoutProps {
-  children: ReactNode;
-}
-
-const Layout = ({ children }: LayoutProps) => {
+const Layout = () => {
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
       {/* Fixed Sidebar */}
@@ -15,7 +11,7 @@ const Layout = ({ children }: LayoutProps) => {
       <main className="pt-16 lg:pt-0 lg:pl-64">
         {/* Add padding for mobile header and sidebar on large screens */}
         <div className="min-h-screen p-4">
-          {children}
+          <Outlet />
         </div>
       </main>
     </div>

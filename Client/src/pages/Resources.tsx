@@ -3,18 +3,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { 
-  BookOpen, 
-  ExternalLink, 
-  Star, 
-  Search, 
+import {
+  BookOpen,
+  ExternalLink,
+  Star,
+  Search,
   Filter,
   Link,
   Phone,
   Mail,
   Clock
 } from "lucide-react";
-import Layout from "@/components/Layout";
 
 const Resources = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -169,7 +168,7 @@ const Resources = () => {
 
   const filteredResources = resources.filter(resource => {
     const matchesSearch = resource.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         resource.description.toLowerCase().includes(searchTerm.toLowerCase());
+      resource.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === "all" || resource.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
@@ -177,112 +176,59 @@ const Resources = () => {
   const bookmarkedResources = resources.filter(resource => resource.bookmarked);
 
   return (
-    <Layout>
-      <div className="p-6 space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <BookOpen className="h-8 w-8" />
-              Campus Resources
-            </h1>
-            <p className="text-muted-foreground">Quick access to essential university services and tools</p>
-          </div>
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            <BookOpen className="h-8 w-8" />
+            Campus Resources
+          </h1>
+          <p className="text-muted-foreground">Quick access to essential university services and tools</p>
         </div>
+      </div>
 
-        {/* Search and Filters */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search resources..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <Button variant="outline">
-            <Filter className="h-4 w-4 mr-2" />
-            Filter
+      {/* Search and Filters */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search resources..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <Button variant="outline">
+          <Filter className="h-4 w-4 mr-2" />
+          Filter
+        </Button>
+      </div>
+
+      {/* Category Filters */}
+      <div className="flex flex-wrap gap-2">
+        {categories.map((category) => (
+          <Button
+            key={category.id}
+            variant={selectedCategory === category.id ? "default" : "outline"}
+            size="sm"
+            onClick={() => setSelectedCategory(category.id)}
+            className="text-sm"
+          >
+            {category.name} ({category.count})
           </Button>
-        </div>
+        ))}
+      </div>
 
-        {/* Category Filters */}
-        <div className="flex flex-wrap gap-2">
-          {categories.map((category) => (
-            <Button
-              key={category.id}
-              variant={selectedCategory === category.id ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedCategory(category.id)}
-              className="text-sm"
-            >
-              {category.name} ({category.count})
-            </Button>
-          ))}
-        </div>
-
-        {/* Bookmarked Resources */}
-        {bookmarkedResources.length > 0 && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <Star className="h-5 w-5 fill-current text-warning" />
-              Bookmarked Resources
-            </h2>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {bookmarkedResources.map((resource) => {
-                const TypeIcon = getTypeIcon(resource.type);
-                return (
-                  <Card key={resource.id} className="hover:shadow-md transition-shadow">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-2">
-                          <TypeIcon className="h-5 w-5 text-muted-foreground" />
-                          <CardTitle className="text-lg">{resource.title}</CardTitle>
-                        </div>
-                        <Star className="h-4 w-4 fill-current text-warning flex-shrink-0" />
-                      </div>
-                      <Badge variant="secondary" className={getCategoryColor(resource.category)}>
-                        {resource.category}
-                      </Badge>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <p className="text-sm text-muted-foreground">
-                        {resource.description}
-                      </p>
-                      
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Clock className="h-3 w-3" />
-                          {resource.hours}
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          {resource.contact.includes('@') ? (
-                            <Mail className="h-3 w-3" />
-                          ) : (
-                            <Phone className="h-3 w-3" />
-                          )}
-                          {resource.contact}
-                        </div>
-                      </div>
-                      
-                      <Button size="sm" className="w-full">
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        Visit Resource
-                      </Button>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* All Resources */}
+      {/* Bookmarked Resources */}
+      {bookmarkedResources.length > 0 && (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold">All Resources</h2>
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Star className="h-5 w-5 fill-current text-warning" />
+            Bookmarked Resources
+          </h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredResources.map((resource) => {
+            {bookmarkedResources.map((resource) => {
               const TypeIcon = getTypeIcon(resource.type);
               return (
                 <Card key={resource.id} className="hover:shadow-md transition-shadow">
@@ -292,13 +238,7 @@ const Resources = () => {
                         <TypeIcon className="h-5 w-5 text-muted-foreground" />
                         <CardTitle className="text-lg">{resource.title}</CardTitle>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className={resource.bookmarked ? "text-warning" : "text-muted-foreground"}
-                      >
-                        <Star className={`h-4 w-4 ${resource.bookmarked ? 'fill-current' : ''}`} />
-                      </Button>
+                      <Star className="h-4 w-4 fill-current text-warning flex-shrink-0" />
                     </div>
                     <Badge variant="secondary" className={getCategoryColor(resource.category)}>
                       {resource.category}
@@ -308,7 +248,7 @@ const Resources = () => {
                     <p className="text-sm text-muted-foreground">
                       {resource.description}
                     </p>
-                    
+
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Clock className="h-3 w-3" />
@@ -323,8 +263,8 @@ const Resources = () => {
                         {resource.contact}
                       </div>
                     </div>
-                    
-                    <Button size="sm" variant="outline" className="w-full">
+
+                    <Button size="sm" className="w-full">
                       <ExternalLink className="h-4 w-4 mr-2" />
                       Visit Resource
                     </Button>
@@ -334,24 +274,81 @@ const Resources = () => {
             })}
           </div>
         </div>
+      )}
 
-        {/* Empty State */}
-        {filteredResources.length === 0 && (
-          <Card className="py-12">
-            <CardContent className="text-center">
-              <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No resources found</h3>
-              <p className="text-muted-foreground mb-4">
-                Try adjusting your search terms or browse different categories
-              </p>
-              <Button variant="outline" onClick={() => setSearchTerm("")}>
-                Clear Search
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+      {/* All Resources */}
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold">All Resources</h2>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredResources.map((resource) => {
+            const TypeIcon = getTypeIcon(resource.type);
+            return (
+              <Card key={resource.id} className="hover:shadow-md transition-shadow">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <TypeIcon className="h-5 w-5 text-muted-foreground" />
+                      <CardTitle className="text-lg">{resource.title}</CardTitle>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={resource.bookmarked ? "text-warning" : "text-muted-foreground"}
+                    >
+                      <Star className={`h-4 w-4 ${resource.bookmarked ? 'fill-current' : ''}`} />
+                    </Button>
+                  </div>
+                  <Badge variant="secondary" className={getCategoryColor(resource.category)}>
+                    {resource.category}
+                  </Badge>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    {resource.description}
+                  </p>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      {resource.hours}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      {resource.contact.includes('@') ? (
+                        <Mail className="h-3 w-3" />
+                      ) : (
+                        <Phone className="h-3 w-3" />
+                      )}
+                      {resource.contact}
+                    </div>
+                  </div>
+
+                  <Button size="sm" variant="outline" className="w-full">
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Visit Resource
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       </div>
-    </Layout>
+
+      {/* Empty State */}
+      {filteredResources.length === 0 && (
+        <Card className="py-12">
+          <CardContent className="text-center">
+            <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No resources found</h3>
+            <p className="text-muted-foreground mb-4">
+              Try adjusting your search terms or browse different categories
+            </p>
+            <Button variant="outline" onClick={() => setSearchTerm("")}>
+              Clear Search
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 };
 

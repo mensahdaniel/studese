@@ -2,8 +2,8 @@ import { supabase } from "./supabase";
 
 export const checkSubscription = async (userId: string) => {
   try {
-    console.log('🔍 Checking REAL subscription for user:', userId);
-    
+    console.log('Checking REAL subscription for user:', userId);
+
     // REAL DATABASE QUERY - check if user has active subscription
     const { data: subscription, error } = await supabase
       .from('subscriptions')
@@ -20,12 +20,12 @@ export const checkSubscription = async (userId: string) => {
       };
     }
 
-    console.log('✅ REAL Subscription found:', subscription);
+    console.log('REAL Subscription found:', subscription);
     return {
       isPro: !!subscription,
       subscription
     };
-    
+
   } catch (error) {
     console.error('Subscription check failed:', error);
     return {
