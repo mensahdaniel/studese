@@ -3273,8 +3273,8 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(
           </div>
         )}
 
-        {/* Keyboard shortcuts help - outside zoom container */}
-        <div className="absolute bottom-4 right-4 z-50 group">
+        {/* Keyboard shortcuts help - outside zoom container, hidden on mobile */}
+        <div className="hidden sm:block absolute bottom-4 right-4 z-50 group">
           <button
             className="bg-background/90 backdrop-blur-sm border rounded-lg p-2 shadow-md hover:bg-muted transition-colors"
             title="Keyboard shortcuts"
