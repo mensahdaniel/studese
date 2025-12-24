@@ -173,7 +173,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
                 {t.icon}
               </Button>
             </TooltipTrigger>
-            <TooltipContent>{t.name}</TooltipContent>
+            <TooltipContent side="top" sideOffset={8} className="z-[200]">{t.name}</TooltipContent>
           </Tooltip>
         ))}
       </div>
@@ -200,7 +200,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
                 {t.icon}
               </Button>
             </TooltipTrigger>
-            <TooltipContent>
+            <TooltipContent side="top" sideOffset={8} className="z-[200]">
               <div className="text-center">
                 <div>{t.name}</div>
                 {t.id === "image" && (
@@ -234,7 +234,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
                 </Button>
               </PopoverTrigger>
             </TooltipTrigger>
-            <TooltipContent>Color</TooltipContent>
+            <TooltipContent side="top" sideOffset={8} className="z-[200]">Color</TooltipContent>
           </Tooltip>
           <PopoverContent className="w-auto p-3" align="center">
             <div className="space-y-3">
@@ -259,7 +259,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
                         }}
                       />
                     </TooltipTrigger>
-                    <TooltipContent side="bottom">{c.name}</TooltipContent>
+                    <TooltipContent side="top" sideOffset={4} className="z-[200]">{c.name}</TooltipContent>
                   </Tooltip>
                 ))}
               </div>
@@ -286,7 +286,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
                 </Button>
               </PopoverTrigger>
             </TooltipTrigger>
-            <TooltipContent>Size</TooltipContent>
+            <TooltipContent side="top" sideOffset={8} className="z-[200]">Size</TooltipContent>
           </Tooltip>
           <PopoverContent className="w-48 p-4" align="center">
             <div className="space-y-3">
@@ -337,7 +337,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
               </Button>
             </PopoverTrigger>
           </TooltipTrigger>
-          <TooltipContent>Paper</TooltipContent>
+          <TooltipContent side="top" sideOffset={8} className="z-[200]">Paper</TooltipContent>
         </Tooltip>
         <PopoverContent className="w-64 p-4" align="center">
           <div className="space-y-4">
@@ -384,7 +384,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
                         onClick={() => setBackground(b.value)}
                       />
                     </TooltipTrigger>
-                    <TooltipContent side="bottom">{b.name}</TooltipContent>
+                    <TooltipContent side="top" sideOffset={4} className="z-[200]">{b.name}</TooltipContent>
                   </Tooltip>
                 ))}
               </div>
@@ -447,7 +447,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
               <Undo2 className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Undo</TooltipContent>
+          <TooltipContent side="top" sideOffset={8} className="z-[200]">Undo</TooltipContent>
         </Tooltip>
 
         <Tooltip>
@@ -462,7 +462,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
               <Redo2 className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Redo</TooltipContent>
+          <TooltipContent side="top" sideOffset={8} className="z-[200]">Redo</TooltipContent>
         </Tooltip>
 
         {/* Desktop Clear Canvas Button */}
@@ -477,7 +477,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
               <Trash2 className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Clear Canvas</TooltipContent>
+          <TooltipContent side="top" sideOffset={8} className="z-[200]">Clear Canvas</TooltipContent>
         </Tooltip>
       </div>
     </div>
