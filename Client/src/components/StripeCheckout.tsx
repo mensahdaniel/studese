@@ -10,6 +10,24 @@ import {
 import { Check, Crown } from "lucide-react";
 import { supabase } from "@/utils/supabase";
 import { BASE_URL } from "@/config";
+import { isExpoWebView, getDeepLinkUrl, openExternalUrl } from "@/utils/mobile";
+
+// Get the appropriate success/cancel URLs based on environment
+const getPaymentUrls = () => {
+  if (isExpoWebView()) {
+    // Use deep links for native app so Stripe redirects back to the app
+    return {
+      successUrl: getDeepLinkUrl('success?session_id={CHECKOUT_SESSION_ID}'),
+      cancelUrl: getDeepLinkUrl('pricing'),
+    };
+  }
+
+  // Use regular web URLs for browser
+  return {
+    successUrl: `${BASE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancelUrl: `${BASE_URL}/pricing`,
+  };
+};
 
 export default function StripeCheckout() {
   const [loading, setLoading] = useState(false);
@@ -28,6 +46,10 @@ export default function StripeCheckout() {
       }
 
       console.log("Starting annual subscription for:", user.email);
+      console.log("Running in native app:", isExpoWebView());
+
+      const { successUrl, cancelUrl } = getPaymentUrls();
+      console.log("Payment URLs:", { successUrl, cancelUrl });
 
       const response = await fetch('https://yfkgyamxfescwqqbmtel.supabase.co/functions/v1/create-checkout-session', {
         method: 'POST',
@@ -38,8 +60,8 @@ export default function StripeCheckout() {
           userId: user.id,
           userEmail: user.email,
           // priceId is read from STRIPE_PRO_PRICE_ID in the edge function
-          successUrl: `${BASE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-          cancelUrl: `${BASE_URL}/pricing`,
+          successUrl,
+          cancelUrl,
         }),
       });
 
@@ -51,16 +73,25 @@ export default function StripeCheckout() {
         throw new Error(result.details || result.error || `HTTP error! status: ${response.status}`);
       }
 
-      if (result.sessionId && result.url) {
-        window.location.href = result.url;
-      } else if (result.sessionId) {
-        window.location.href = `https://checkout.stripe.com/c/pay/${result.sessionId}`;
-      } else {
+      const checkoutUrl = result.url || (result.sessionId ? `https://checkout.stripe.com/c/pay/${result.sessionId}` : null);
+
+      if (!checkoutUrl) {
         throw new Error(result.error || "No session data received");
       }
-    } catch (error: any) {
+
+      // For native app, we need to open the Stripe checkout in the system browser
+      // so that when Stripe redirects to our deep link, it will open the app
+      if (isExpoWebView()) {
+        console.log("Opening Stripe checkout in system browser for native app");
+        openExternalUrl(checkoutUrl);
+      } else {
+        // For web, just redirect normally
+        window.location.href = checkoutUrl;
+      }
+    } catch (error: unknown) {
       console.error("Subscription error:", error);
-      alert("Error: " + error.message);
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+      alert("Error: " + errorMessage);
     } finally {
       setLoading(false);
     }

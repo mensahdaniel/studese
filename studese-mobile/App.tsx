@@ -21,6 +21,9 @@ ExpoSplashScreen.preventAutoHideAsync();
 // Get URL from environment config, fallback to production URL
 const STUDESE_URL = Constants.expoConfig?.extra?.webUrl || 'https://studese.com';
 
+// URL scheme for deep linking
+const URL_SCHEME = 'studese';
+
 // Configure notification handler for foreground notifications
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -48,6 +51,31 @@ const isInternalUrl = (url: string): boolean => {
   }
 };
 
+// Parse deep link URL and convert to web URL
+const parseDeepLink = (url: string): string | null => {
+  try {
+    // Handle studese://path?params format
+    if (url.startsWith(`${URL_SCHEME}://`)) {
+      const withoutScheme = url.replace(`${URL_SCHEME}://`, '');
+      // Split path and query params
+      const [path, queryString] = withoutScheme.split('?');
+
+      // Construct the web URL
+      let webUrl = `${STUDESE_URL}/${path}`;
+      if (queryString) {
+        webUrl += `?${queryString}`;
+      }
+
+      console.log('Deep link parsed:', { original: url, webUrl });
+      return webUrl;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error parsing deep link:', error);
+    return null;
+  }
+};
+
 export default function App() {
   const webViewRef = useRef<WebView>(null);
   const [canGoBack, setCanGoBack] = useState(false);
@@ -56,9 +84,61 @@ export default function App() {
   const [webViewReady, setWebViewReady] = useState(false);
   const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
+  const [pendingDeepLink, setPendingDeepLink] = useState<string | null>(null);
   const notificationListener = useRef<Notifications.Subscription | null>(null);
   const responseListener = useRef<Notifications.Subscription | null>(null);
   const appState = useRef(AppState.currentState);
+
+  // Handle deep link navigation
+  const handleDeepLink = useCallback((url: string) => {
+    console.log('Handling deep link:', url);
+
+    const webUrl = parseDeepLink(url);
+    if (webUrl && webViewRef.current) {
+      console.log('Navigating WebView to:', webUrl);
+      webViewRef.current.injectJavaScript(`
+        window.location.href = '${webUrl}';
+        true;
+      `);
+    } else if (webUrl) {
+      // WebView not ready yet, store for later
+      console.log('WebView not ready, storing deep link for later');
+      setPendingDeepLink(webUrl);
+    }
+  }, []);
+
+  // Set up deep link handling
+  useEffect(() => {
+    // Handle deep links when app is already open
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      console.log('Deep link received (app open):', url);
+      handleDeepLink(url);
+    });
+
+    // Handle deep link that opened the app
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        console.log('Initial deep link:', url);
+        handleDeepLink(url);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [handleDeepLink]);
+
+  // Process pending deep link when WebView is ready
+  useEffect(() => {
+    if (webViewReady && pendingDeepLink && webViewRef.current) {
+      console.log('Processing pending deep link:', pendingDeepLink);
+      webViewRef.current.injectJavaScript(`
+        window.location.href = '${pendingDeepLink}';
+        true;
+      `);
+      setPendingDeepLink(null);
+    }
+  }, [webViewReady, pendingDeepLink]);
 
   // Hide splash when both WebView is ready and animation is complete
   useEffect(() => {
@@ -256,6 +336,14 @@ export default function App() {
         isNativeApp: true,
         platform: '${Platform.OS}',
         pushToken: null,
+        urlScheme: '${URL_SCHEME}',
+
+        // Get the deep link URL for a given path
+        getDeepLinkUrl: function(path) {
+          // Remove leading slash if present
+          const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+          return '${URL_SCHEME}://' + cleanPath;
+        },
 
         // Request a test notification (for development)
         testNotification: function() {
@@ -292,6 +380,14 @@ export default function App() {
           window.ReactNativeWebView.postMessage(JSON.stringify({
             type: 'REGISTER_PUSH_TOKEN',
             userId: userId
+          }));
+        },
+
+        // Open external URL in system browser
+        openInBrowser: function(url) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'OPEN_IN_BROWSER',
+            url: url
           }));
         }
       };
@@ -348,7 +444,7 @@ export default function App() {
       // Notify React Native that the page is ready
       window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'PAGE_LOADED' }));
 
-      console.log('StudeseNative bridge initialized');
+      console.log('StudeseNative bridge initialized with URL scheme: ${URL_SCHEME}');
     })();
     true;
   `;
@@ -360,6 +456,12 @@ export default function App() {
 
       switch (data.type) {
         case 'EXTERNAL_LINK':
+          if (data.url) {
+            Linking.openURL(data.url);
+          }
+          break;
+
+        case 'OPEN_IN_BROWSER':
           if (data.url) {
             Linking.openURL(data.url);
           }

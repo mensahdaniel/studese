@@ -25,8 +25,17 @@ export default {
       infoPlist: {
         UIBackgroundModes: [
           "remote-notification"
+        ],
+        CFBundleURLTypes: [
+          {
+            CFBundleURLSchemes: ["studese"]
+          }
         ]
-      }
+      },
+      associatedDomains: [
+        "applinks:studese.com",
+        "applinks:studese.vercel.app"
+      ]
     },
     android: {
       adaptiveIcon: {
@@ -46,6 +55,35 @@ export default {
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
         "android.permission.POST_NOTIFICATIONS"
+      ],
+      intentFilters: [
+        {
+          action: "VIEW",
+          autoVerify: true,
+          data: [
+            {
+              scheme: "studese"
+            }
+          ],
+          category: ["BROWSABLE", "DEFAULT"]
+        },
+        {
+          action: "VIEW",
+          autoVerify: true,
+          data: [
+            {
+              scheme: "https",
+              host: "studese.com",
+              pathPrefix: "/success"
+            },
+            {
+              scheme: "https",
+              host: "studese.vercel.app",
+              pathPrefix: "/success"
+            }
+          ],
+          category: ["BROWSABLE", "DEFAULT"]
+        }
       ]
     },
     web: {
@@ -63,7 +101,8 @@ export default {
           ],
           defaultChannel: "default"
         }
-      ]
+      ],
+      "expo-linking"
     ],
     notification: {
       color: "#5B9BF3",

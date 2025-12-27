@@ -1,33 +1,20 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/utils/supabase';
-import { CheckCircle, AlertCircle } from 'lucide-react';
+import { CheckCircle, AlertCircle, Smartphone } from 'lucide-react';
+import { isExpoWebView } from '@/utils/mobile';
 
 export default function Success() {
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
+  const [isSuccess, setIsSuccess] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    console.log('Success page loaded');
-    const sessionId = searchParams.get('session_id');
-    console.log('Session ID from URL:', sessionId);
-
-    if (sessionId) {
-      console.log('Starting verification...');
-      verifySubscription(sessionId);
-    } else {
-      console.log('No session ID found');
-      setMessage('No session ID found');
-      setLoading(false);
-    }
-  }, [searchParams]);
-
-  const verifySubscription = async (sessionId: string) => {
+  const verifySubscription = useCallback(async (sessionId: string) => {
     try {
       console.log('Getting current user...');
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
 
       console.log('Current user:', user);
 
@@ -72,7 +59,9 @@ export default function Success() {
 
         console.log('New profile created:', newProfile);
         setMessage('Payment Successful! Welcome to Studese Pro!');
+        setIsSuccess(true);
 
+        // Redirect to dashboard after delay
         setTimeout(() => {
           console.log('Redirecting to dashboard...');
           navigate('/dashboard');
@@ -101,8 +90,9 @@ export default function Success() {
       } else {
         console.log('User marked as paid successfully! Redirecting...');
         setMessage('Payment Successful! Welcome to Studese Pro!');
+        setIsSuccess(true);
 
-        // Redirect to dashboard after 2 seconds
+        // Redirect to dashboard after delay
         setTimeout(() => {
           console.log('Redirecting to dashboard...');
           navigate('/dashboard');
@@ -115,32 +105,74 @@ export default function Success() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigate]);
+
+  useEffect(() => {
+    console.log('Success page loaded');
+    console.log('Running in native app:', isExpoWebView());
+    const sessionId = searchParams.get('session_id');
+    console.log('Session ID from URL:', sessionId);
+
+    if (sessionId) {
+      console.log('Starting verification...');
+      verifySubscription(sessionId);
+    } else {
+      console.log('No session ID found');
+      setMessage('No session ID found');
+      setLoading(false);
+    }
+  }, [searchParams, verifySubscription]);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6 text-center">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 text-center">
         {loading ? (
           <div>
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Verifying your payment...</p>
+            <p className="mt-4 text-gray-600 dark:text-gray-300">Verifying your payment...</p>
+            {isExpoWebView() && (
+              <div className="mt-4 flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                <Smartphone className="h-4 w-4" />
+                <span>Returning to Studese app...</span>
+              </div>
+            )}
           </div>
         ) : (
           <div>
             <div className="mb-4 flex justify-center">
-              {message.includes('Successful') ? (
+              {isSuccess ? (
                 <CheckCircle className="h-16 w-16 text-green-500" />
               ) : (
                 <AlertCircle className="h-16 w-16 text-yellow-500" />
               )}
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              {message.includes('Successful') ? 'Welcome to Studese Pro!' : 'Payment Issue'}
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              {isSuccess ? 'Welcome to Studese Pro!' : 'Payment Issue'}
             </h1>
-            <p className="text-gray-600 mb-6">{message}</p>
-            <div className="text-sm text-gray-500">
-              Check browser console (F12) for debug info
-            </div>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">{message}</p>
+
+            {isSuccess && (
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                Redirecting you to your dashboard...
+              </p>
+            )}
+
+            {!isSuccess && (
+              <button
+                onClick={() => navigate('/pricing')}
+                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Try Again
+              </button>
+            )}
+
+            {/* Debug info - only in development */}
+            {import.meta.env.DEV && (
+              <div className="mt-6 text-xs text-gray-400 dark:text-gray-500">
+                <p>Environment: {isExpoWebView() ? 'Native App' : 'Web Browser'}</p>
+                <p>Check browser console (F12) for debug info</p>
+              </div>
+            )}
           </div>
         )}
       </div>

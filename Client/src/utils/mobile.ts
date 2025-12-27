@@ -11,6 +11,7 @@ declare global {
       isNativeApp: boolean;
       platform: 'ios' | 'android';
       pushToken: string | null;
+      urlScheme: string;
       testNotification: () => void;
       scheduleNotification: (
         title: string,
@@ -21,6 +22,8 @@ declare global {
       cancelAllNotifications: () => void;
       getPushToken: () => string | null;
       registerPushToken: (userId: string) => void;
+      getDeepLinkUrl: (path: string) => string;
+      openInBrowser: (url: string) => void;
     };
     // React Native WebView postMessage
     ReactNativeWebView?: {
@@ -295,12 +298,36 @@ export const vibrate = (duration: number = 50): void => {
  * Open external URL in system browser
  */
 export const openExternalUrl = (url: string): void => {
-  if (isExpoWebView()) {
+  if (window.StudeseNative?.openInBrowser) {
+    // Use the native bridge method if available
+    window.StudeseNative.openInBrowser(url);
+  } else if (isExpoWebView()) {
     // Post message to native app to open in browser
     postMessageToNative('EXTERNAL_LINK', { url });
   } else {
     window.open(url, '_blank');
   }
+};
+
+/**
+ * Get the URL scheme for deep linking
+ */
+export const getUrlScheme = (): string => {
+  return window.StudeseNative?.urlScheme || 'studese';
+};
+
+/**
+ * Get a deep link URL for a given path
+ * @param path - The path to create a deep link for (e.g., 'success?session_id=123')
+ * @returns The full deep link URL (e.g., 'studese://success?session_id=123')
+ */
+export const getDeepLinkUrl = (path: string): string => {
+  if (window.StudeseNative?.getDeepLinkUrl) {
+    return window.StudeseNative.getDeepLinkUrl(path);
+  }
+  // Fallback: construct manually
+  const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+  return `${getUrlScheme()}://${cleanPath}`;
 };
 
 /**
@@ -337,4 +364,6 @@ export default {
   vibrate,
   openExternalUrl,
   hasNotch,
+  getUrlScheme,
+  getDeepLinkUrl,
 };
