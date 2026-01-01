@@ -1,9 +1,9 @@
-import 'dotenv/config';
+require('dotenv/config');
 
-export default {
+module.exports = {
   expo: {
     name: "Studese",
-    slug: "studese",
+    slug: "studese-oyxj5bmxnlq1zcbws4vat",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
@@ -101,8 +101,7 @@ export default {
           ],
           defaultChannel: "default"
         }
-      ],
-      "expo-linking"
+      ]
     ],
     notification: {
       color: "#5B9BF3",
@@ -113,7 +112,7 @@ export default {
       // Read from .env file, fallback to production URL
       webUrl: process.env.WEB_URL || "https://studese.com",
       eas: {
-        projectId: process.env.EAS_PROJECT_ID || "your-project-id"
+        projectId: "7ed4dfe9-3a59-4c3d-a7b7-25f15026341c"
       }
     }
   }
